@@ -77,4 +77,6 @@ Escalate beyond the on-call DBA when any of the following are true:
 ## 12. Related Issues
 
 - [audit-logging-and-iam-auth](../audit-logging-and-iam-auth/README.md)
+- [credential-and-authentication-hygiene](../credential-and-authentication-hygiene/README.md)
+- [access-anomaly-investigation](../access-anomaly-investigation/README.md)
 - [parameter-group-change-management](../../maintenance/parameter-group-change-management/README.md)

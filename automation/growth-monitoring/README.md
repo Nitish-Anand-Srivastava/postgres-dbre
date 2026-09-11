@@ -39,11 +39,12 @@ full execution table (safety, expected runtime, when to stop).
 
 1. [`scripts/01_check_tracking_table_status.sql`](scripts/01_check_tracking_table_status.sql) -- Checks whether dba_toolkit.table_size_history already exists and, if so, reports its row count and capture window.
 2. [`scripts/02_verify_collection_cadence.sql`](scripts/02_verify_collection_cadence.sql) -- Where the tracking table exists, checks for gaps between consecutive capture timestamps to confirm the collector is running on a healthy, consistent cadence.
-3. [`scripts/03_deploy_collector_runbook.md`](scripts/03_deploy_collector_runbook.md) -- Documents the exact DDL for dba_toolkit.table_size_history and the periodic collector job that populates it -- deliberate, reviewed infrastructure you deploy once, not something to pipe into psql unread.
+3. [`scripts/03_growth_rate_from_history.sql`](scripts/03_growth_rate_from_history.sql) -- The payoff query: computes actual per-table growth over the retention window from the collected history, which is the whole reason the collector exists.
+4. [`scripts/04_deploy_collector_runbook.md`](scripts/04_deploy_collector_runbook.md) -- Documents the exact DDL for dba_toolkit.table_size_history and the periodic collector job that populates it -- deliberate, reviewed infrastructure you deploy once, not something to pipe into psql unread.
 
 ## 8. Interpretation Guide
 
-- A tracking_table_exists = false result from script 01 is not a failure of this workflow -- it is the expected state before the collector has ever been deployed. Proceed to the runbook in script 03.
+- A tracking_table_exists = false result from script 01 is not a failure of this workflow -- it is the expected state before the collector has ever been deployed. Proceed to the runbook in script 04.
 - A tracking table that exists but whose latest_capture_at is far in the past (days, for a collector intended to run hourly or daily) means the collector has stopped running -- check the scheduling mechanism (pg_cron job status via automation/health-checks, or the external scheduler's own logs) rather than assuming the table itself needs fixing.
 - distinct_tables_tracked growing over time as new tables are created is expected and healthy; a sudden drop suggests the collector's population query is filtering more narrowly than intended (e.g. a schema exclusion that now excludes a schema it should not).
 
@@ -65,7 +66,7 @@ full execution table (safety, expected runtime, when to stop).
 ## 10. Production Safety
 
 - The two `.sql` scripts in this workflow are strictly read-only.
-- The deployment runbook (script 03) contains DDL and a scheduled INSERT job -- it is markdown, deliberately never an auto-executing script, and must be reviewed and applied by an operator.
+- The deployment runbook (script 04) contains DDL and a scheduled INSERT job -- it is markdown, deliberately never an auto-executing script, and must be reviewed and applied by an operator.
 - The collector's own periodic INSERT is lightweight (one row per tracked relation per collection interval) and its read query (`pg_total_relation_size()` per relation) is the same catalog-only read every other sizing script in this toolkit already performs.
 
 ## 11. Escalation Criteria

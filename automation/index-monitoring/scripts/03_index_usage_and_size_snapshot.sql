@@ -28,7 +28,7 @@ EXECUTION ORDER:
 Step 03 of workflow 'automation/index-monitoring'
 
 RELATED SCRIPTS:
-04_scheduling_runbook.md
+04_duplicate_indexes_snapshot.sql
 
 HOW TO INTERPRET RESULTS:
 Recorded over successive scheduled runs, this is what actually shows an index-growth trend (storage-and-capacity/index-growth) rather than a single size figure -- an index whose size is climbing release over release with a flat or falling idx_scan is a much stronger over-indexing signal than either fact alone.

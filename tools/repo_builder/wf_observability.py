@@ -411,7 +411,7 @@ live per-session scripts in wait-event-analysis and
 concurrency-and-locking/blocked-queries alongside PI's historical view.
 """.strip("\n"),
         "Follow the numbered steps in order during a live investigation. The enable/modify step is the only part of this runbook that changes anything -- everything else is read-only console/API usage.",
-        safety="LOW RISK WRITE (AWS instance configuration change to enable Performance Insights; no SQL statements executed against the database)",
+        safety="INFORMATIONAL -- NO SQL EXECUTED, AWS CONSOLE/API GUIDANCE ONLY (the enable step is a change-managed AWS instance modification -- see runbook)",
         expected_impact=REFERENCE_DOC_IMPACT,
         required_privileges="IAM permission to describe/modify the DB instance and to view Performance Insights (pi:GetResourceMetrics, pi:DescribeDimensionKeys, rds:ModifyDBInstance) for the enable step; no PostgreSQL role required for the console/API portions.",
         prerequisites="None to read this runbook. Enabling Performance Insights on an existing instance should be scheduled like any other instance-modifying change.",
@@ -592,9 +592,9 @@ since it affects on-call paging behavior.
    owns the underlying database behavior, using this table as the index.
 """.strip("\n"),
         "Use the table to go from 'this CloudWatch alarm fired' to 'this is the SQL script that explains it' in one lookup, without needing to remember the mapping from memory during an incident.",
-        safety=READ_ONLY + " (reference documentation only; no SQL statements are executed by this file)",
+        safety="INFORMATIONAL -- NO SQL EXECUTED, AWS CONSOLE/API GUIDANCE ONLY (reference mapping; any CloudWatch alarm change is a change-managed AWS action)",
         expected_impact=REFERENCE_DOC_IMPACT,
-        required_privileges=PG_MONITOR,
+        required_privileges="IAM permission to view CloudWatch metrics/alarms for the console portions; the SQL scripts this table points at require pg_monitor as usual.",
         prerequisites="None to read this reference. The scripts it links to have their own prerequisites.",
         execution_location=ANY_INSTANCE,
         expected_runtime="A few minutes to read; the referenced SQL scripts are each low runtime individually.",
@@ -1164,7 +1164,7 @@ repository (or the CloudWatch metric) that backs it.
   the first incident.
 """.strip("\n"),
         "Use this as the starting checklist when building a new dashboard or auditing an existing one -- each row names the exact script/metric in this repository (or CloudWatch) that backs it, so implementation is a direct lookup rather than a design exercise.",
-        safety="READ ONLY (reference/planning documentation only; no SQL statements are executed by this file)",
+        safety="INFORMATIONAL -- NO SQL EXECUTED, DASHBOARD/ALERTING DESIGN GUIDANCE ONLY",
         expected_impact=REFERENCE_DOC_IMPACT,
         required_privileges=PG_MONITOR,
         prerequisites="None to read this reference. Each panel's underlying script/metric has its own prerequisites.",

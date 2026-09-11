@@ -7,7 +7,7 @@ in `observability/cloudwatch/scripts/`.
 | ----- | ------ | ------- | ------ | ---------------- |
 | 01 | `01_sql_side_capacity_and_load_snapshot.sql` | One-row SQL-side snapshot mapped to key CloudWatch metrics. | READ ONLY | Low (sub-second to a few seconds) |
 | 02 | `02_replication_lag_sql_companion.sql` | Aurora cluster replica status and lag, per reader. | READ ONLY | Low (sub-second to a few seconds) |
-| 03 | `03_cloudwatch_metric_to_sql_mapping.md` | Reference: CloudWatch metric to SQL-level companion query mapping. | READ ONLY (reference documentation only; no SQL statements are executed by this file) | A few minutes to read; the referenced SQL scripts are each low runtime individually. |
+| 03 | `03_cloudwatch_metric_to_sql_mapping.md` | Reference: CloudWatch metric to SQL-level companion query mapping. | INFORMATIONAL -- NO SQL EXECUTED, AWS CONSOLE/API GUIDANCE ONLY (reference mapping; any CloudWatch alarm change is a change-managed AWS action) | A few minutes to read; the referenced SQL scripts are each low runtime individually. |
 
 ## Execution Order
 

@@ -28,7 +28,7 @@ EXECUTION ORDER:
 Step 02 of workflow 'automation/health-checks'
 
 RELATED SCRIPTS:
-03_scheduling_runbook.md
+03_quick_health_signal.sql
 
 HOW TO INTERPRET RESULTS:
 A status of failed, or a return_message describing an error, means the schedule exists but the check is not actually running successfully -- this is worse than having no schedule at all, because it creates false confidence. Review failures immediately; a job that has failed on every run since it was created has never actually protected anything.
@@ -56,5 +56,5 @@ LEFT JOIN cron.job j ON j.jobid = r.jobid
 WHERE r.start_time > now() - make_interval(hours => :lookback_hours)
 ORDER BY r.start_time DESC;
 \else
-SELECT 'pg_cron is not installed in this database, so no job run history is available. See the scheduling runbook in this workflow (script 03) for how to enable it, or how to use an external scheduler instead.' AS notice;
+SELECT 'pg_cron is not installed in this database, so no job run history is available. See the scheduling runbook in this workflow (script 04) for how to enable it, or how to use an external scheduler instead.' AS notice;
 \endif

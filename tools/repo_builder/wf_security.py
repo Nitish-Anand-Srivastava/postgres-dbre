@@ -56,7 +56,7 @@ WORKFLOWS.append(_wf(
     remediation_long_term=["Adopt a standing quarterly role-and-privilege-audit cadence (see maintenance/routine-maintenance-checklist) rather than only auditing reactively after an incident or ahead of a compliance deadline.", "Move toward a small number of well-documented group roles (e.g. app_readonly, app_readwrite, reporting) with individual login roles granted membership only in those groups, instead of ad hoc direct grants."],
     production_safety=["Every script in this workflow is a read-only catalog query; nothing here modifies a role or a grant."],
     escalation_criteria=["Any role with rolsuper = true, or an unexplained rolbypassrls = true, is found -- escalate to the security team immediately regardless of audit cadence.", "A role is found with object-level access it has no documented business justification for -- escalate to the role's owning team before revoking, in case the access is load-bearing for an undocumented integration."],
-    related_issues=["../unused-and-orphaned-roles/README.md", "../public-schema-exposure/README.md", "../audit-logging-and-iam-auth/README.md"],
+    related_issues=["../unused-and-orphaned-roles/README.md", "../public-schema-exposure/README.md", "../audit-logging-and-iam-auth/README.md", "../row-level-security-review/README.md", "../access-anomaly-investigation/README.md"],
     aurora_notes=["Aurora/RDS does not expose a true PostgreSQL superuser; the bootstrap application role is a member of rds_superuser instead, which is intentionally weaker (no filesystem or OS-level access) -- rolsuper should read false for every role you find, and a true value is itself an anomaly worth investigating rather than an expected top-of-hierarchy role."],
 ))
 wf = WORKFLOWS[-1]
@@ -315,7 +315,7 @@ WORKFLOWS.append(_wf(
     remediation_long_term=["Standardize on sslmode=verify-full (certificate validation, not just encryption) in every application's connection configuration, using the Aurora/RDS CA bundle, so connections are also protected against interception via a spoofed endpoint, not just eavesdropping."],
     production_safety=["The SQL investigation scripts here are read-only. Enabling rds.force_ssl is a parameter-group change: for parameters requiring a reboot to take effect, plan it as a maintenance-window activity (see maintenance/parameter-group-change-management), and confirm every client that will connect afterward is SSL-capable before enforcing it cluster-wide."],
     escalation_criteria=["Sensitive/financial-data connections are found using SSL protocol versions below TLSv1.2, or entirely unencrypted, on a production writer -- escalate to the security team regardless of whether rds.force_ssl is already enabled, since a permissive client-side sslmode can still coexist with a lenient server setting."],
-    related_issues=["../audit-logging-and-iam-auth/README.md", "../../maintenance/parameter-group-change-management/README.md"],
+    related_issues=["../audit-logging-and-iam-auth/README.md", "../credential-and-authentication-hygiene/README.md", "../access-anomaly-investigation/README.md", "../../maintenance/parameter-group-change-management/README.md"],
     aurora_notes=["SSL/TLS enforcement on Aurora PostgreSQL is controlled by the rds.force_ssl parameter on the DB cluster (and/or instance) parameter group, applied via the AWS Console/CLI/infrastructure-as-code -- there is no postgresql.conf-level ssl=on/off toggle to edit directly the way there is on self-managed PostgreSQL, and ALTER SYSTEM cannot set it."],
 ))
 wf = WORKFLOWS[-1]
@@ -423,7 +423,7 @@ WORKFLOWS.append(_wf(
     remediation_long_term=["If pgaudit is not installed and a compliance requirement genuinely needs object-level audit logging, plan its installation and shared_preload_libraries change as a change-managed maintenance-window activity (see this workflow's runbook and maintenance/parameter-group-change-management, since shared_preload_libraries changes require a reboot).", "Migrate remaining password-authenticated application roles to IAM authentication over time as a standing security posture improvement, prioritizing roles with access to the most sensitive data first."],
     production_safety=["The investigation scripts here are read-only. Installing pgaudit (CREATE EXTENSION plus a shared_preload_libraries parameter-group change) and granting rds_iam membership are both guarded, change-managed steps documented in this workflow's runbook -- neither is executed automatically by any script here."],
     escalation_criteria=["A compliance deadline requires object-level audit evidence and pgaudit is confirmed not installed -- escalate to the platform/compliance team immediately, since installing it requires a reboot-driven maintenance window that needs lead time to schedule."],
-    related_issues=["../role-and-privilege-audit/README.md", "../ssl-and-connection-security/README.md"],
+    related_issues=["../role-and-privilege-audit/README.md", "../ssl-and-connection-security/README.md", "../credential-and-authentication-hygiene/README.md", "../access-anomaly-investigation/README.md"],
     aurora_notes=["IAM database authentication on Aurora PostgreSQL is granted per role by making that role a member of the built-in rds_iam role -- it does not exist as a concept on self-managed PostgreSQL at all, which instead would rely on an external authentication mechanism (LDAP/Kerberos) configured very differently."],
 ))
 wf = WORKFLOWS[-1]
@@ -980,6 +980,239 @@ ORDER BY applies_to_database, applies_to_role;
               expected_runtime="Milliseconds per statement; the coordinated rollout (secret store update, application restart, draining the old role's connections) is the part that takes a change window.",
               related_scripts="01_login_roles_expiry_and_limits.sql, 02_authentication_settings_and_role_overrides.sql"),
 ]
+
+# ---------------------------------------------------------------------------
+# access-anomaly-investigation
+# ---------------------------------------------------------------------------
+WORKFLOWS.append(_wf(
+    slug="access-anomaly-investigation",
+    title="Access Anomaly Investigation",
+    summary="The reactive workflow for 'someone or something is connecting to this database that should not be' -- establishing, from catalog and live-activity data alone, who is currently connected, from where, over what transport, with what privileges, and which of those facts is inconsistent with the documented access model.",
+    symptoms=["Connections appear from a client address, application_name, or role that is not part of the documented access model for this cluster.", "A security alert (from CloudTrail, a network flow log, a secret-scanning hit, or an intrusion-detection system) points at this database and needs corroboration from inside it.", "A role's connection count, query pattern, or connecting host changes abruptly with no corresponding deploy or scheduled job.", "A privilege that nobody on the team remembers granting appears in a routine role-and-privilege-audit."],
+    business_impact=["Unauthorized read access to wallet balances, deposit addresses, ledger entries, or order-book state is a direct customer-data breach with regulatory reporting obligations, and on an exchange it is also directly monetizable by the attacker -- front-running visible order flow or mapping customer holdings -- so the window between detection and containment has immediate financial consequence, not only compliance ones.", "Investigating without a disciplined sequence destroys the evidence needed afterward: terminating sessions before capturing their identity, or revoking grants before recording them, makes the regulator-facing question 'what was accessed and by whom' permanently unanswerable."],
+    root_causes=["A leaked or shared static credential is being used from outside the expected network path (see credential-and-authentication-hygiene).", "A security group, subnet route, or VPC peering change widened network reachability to the cluster beyond the intended application tier.", "A legitimate but undocumented integration (an analytics tool, a vendor connector, a colleague's local psql session) is connecting directly to production, which looks identical to an attack from inside the database.", "An over-broad grant -- often to PUBLIC or to a widely-held group role -- lets an existing, legitimate low-privilege role reach data it was never meant to see, so nothing about the *connection* is anomalous, only the access (see public-schema-exposure).", "A role obtained escalation through a grantable privilege (`WITH GRANT OPTION`) or the CREATEROLE attribute and granted itself further access."],
+    investigation_strategy=["Capture the current connection picture first -- role, client address, application name, backend start time, state, and SSL status -- because pg_stat_activity is a live snapshot that is gone the moment those sessions end.", "Classify each session against the documented expectation (expected roles, expected client network) so anomalies are flagged by the query rather than spotted by eye under pressure.", "Enumerate the standing escalation surface: roles with elevated attributes, grantable privileges, and objects reachable via PUBLIC -- this answers 'what could the anomalous identity have reached', which matters more than what it happened to run.", "Only then decide on containment, following the guarded runbook so evidence is preserved before access is cut."],
+    prerequisites=["`pg_monitor` membership so `pg_stat_activity` shows the query text, client address, and state of *other* roles' sessions -- without it, rows for other users are largely masked and the investigation will silently under-report.", "The documented list of expected application roles and expected client network ranges for this cluster; without it, script 02 cannot distinguish anomalous from normal and will simply flag everything.", "Awareness that in-database data alone cannot prove intent or reconstruct history -- correlate with the AWS-side and log-side sources (`log_connections` output, CloudTrail, VPC flow logs) referenced in this workflow."],
+    interpretation_guide=["`client_addr IS NULL` means the connection did not arrive over TCP from an external client -- on Aurora this is characteristic of internal/management activity rather than an application, so treat it as a category to explain, not automatically as an intrusion.", "A session whose `usename` is outside the expected role list, *or* whose `client_addr` is outside the expected network range, is the primary signal from script 02; a session that is anomalous on both counts simultaneously is the highest priority row in the entire workflow.", "`ssl = false` on an anomalous session is doubly significant: the traffic is readable on the network path, and it indicates a client configured outside the standard application connection template (see ssl-and-connection-security).", "A generic or absent `application_name` on a long-lived session from an unexpected address is a meaningful signal -- every first-party service on a well-run platform sets a recognizable application_name, so its absence points at an ad hoc client rather than a deployed service.", "In the escalation-surface result, `is_grantable = true` means the grantee can re-grant that privilege to anyone else, so a single such row can explain a privilege that 'nobody granted'; `rolcreaterole = true` is the strongest standing escalation path short of rds_superuser membership, since a role that can create roles can create one with privileges it will then grant itself.", "Absence of evidence is not evidence of absence here: `pg_stat_activity` shows only sessions that exist right now, and `pg_stat_statements` aggregates by statement rather than by session identity, so neither can tell you what a session that already disconnected did."],
+    remediation_immediate=["Capture evidence before cutting access: save the output of scripts 01-03 (with timestamps) to the incident record first -- terminating a session erases the only in-database record of it.", "If containment cannot wait, block new connections for the implicated role (`ALTER ROLE ... NOLOGIN`) before terminating its existing sessions, otherwise the client simply reconnects into the gap; both steps are in the guarded containment runbook.", "Engage security incident response in parallel with, not after, the database-side work -- the network and IAM side of the investigation runs concurrently and needs the connection details captured in script 01."],
+    remediation_short_term=["Rotate every credential that could plausibly have been exposed, using the dual-credential pattern in credential-and-authentication-hygiene, not just the one credential confirmed to have been used.", "Revoke the specific over-broad grants identified in script 03, starting with anything granted to PUBLIC on tables holding customer or financial data.", "Enable `log_connections`/`log_disconnections` if they were off, so the next investigation has an authentication history rather than only a live snapshot."],
+    remediation_long_term=["Close the network path: restrict the cluster's security groups to the application tier, and remove any direct human/tool access path to the production writer in favor of a controlled read path against a reader.", "Adopt IAM database authentication for service roles so there is no static credential to leak, and so every connection is attributable to an AWS identity in CloudTrail (see audit-logging-and-iam-auth).", "Install pgaudit if the platform is subject to an access-attribution requirement -- this workflow's fundamental limitation is that PostgreSQL does not retain per-session access history by default, and no catalog query can recover it after the fact.", "Fold the escalation-surface query (script 03) into the scheduled security review so grantable privileges and CREATEROLE attributes are noticed on a cadence rather than during an incident."],
+    production_safety=["Scripts 01-03 are read-only catalog and statistics queries, safe to run on a production writer during an active incident, and they are the correct first action -- they gather exactly the evidence that containment destroys.", "No script in this workflow terminates a session or changes a privilege. Containment actions -- `NOLOGIN`, `pg_terminate_backend()`, `REVOKE` -- live only in the guarded runbook (script 04), because each is disruptive to legitimate traffic on the same role and irreversible with respect to the evidence it removes.", "Treat the output of these scripts as incident evidence: store it with the incident record, with the capture time recorded, rather than pasting it into an ephemeral chat thread."],
+    escalation_criteria=["Any session is confirmed as an identity that is not part of the documented access model -- escalate to security incident response immediately; do not attempt to resolve it as a database-only issue.", "A role with access to wallet, ledger, deposit, or withdrawal tables is implicated -- escalate to security and compliance leadership the same hour, since customer-data-breach notification timelines may start at the point of detection.", "The escalation-surface query shows a privilege grant or role attribute that nobody can account for -- escalate rather than revoking it silently, because the grant itself is evidence of how the access was obtained.", "Containment would require terminating sessions belonging to a shared role that also serves production traffic -- escalate for a joint decision with the application owner; the availability impact of containment must be an explicit, recorded choice."],
+    related_issues=["../role-and-privilege-audit/README.md", "../credential-and-authentication-hygiene/README.md", "../ssl-and-connection-security/README.md", "../row-level-security-review/README.md", "../../connections/connection-exhaustion/README.md"],
+    aurora_notes=["Aurora has no `pg_hba.conf` to inspect for which hosts are permitted: network reachability is governed by the cluster's VPC security groups and subnet routing, and authentication method availability by the parameter group and IAM configuration -- so the 'where could this connection have come from' half of the investigation happens in the AWS console/API, not in SQL.", "Connection-level audit history on Aurora comes from `log_connections`/`log_disconnections` in the parameter group (published to CloudWatch Logs when log export is enabled) and, for IAM-authenticated connections, from CloudTrail -- none of it is queryable from inside PostgreSQL, so capture the in-database snapshot here and correlate it with those sources rather than expecting SQL to answer the historical question.", "Because Aurora readers share the same storage and the same role definitions as the writer, an anomalous identity has the same data access on every instance in the cluster; checking only the writer's `pg_stat_activity` will miss sessions attached to a reader, so run script 01 against each instance endpoint, not just the cluster writer endpoint."],
+))
+wf = WORKFLOWS[-1]
+wf.scripts = [
+    sql_script("01", "01_current_sessions_by_identity_and_origin", "Captures the live session inventory -- role, client address, application, transport encryption, state, and age -- as the first evidence step of an access investigation.",
+               """
+-- Live session inventory, joined to pg_stat_ssl so transport encryption is
+-- visible per session. This is a snapshot: the rows disappear when the
+-- sessions end, so capture the output into the incident record before doing
+-- anything else. Requires pg_monitor to see other roles' details -- without
+-- it, most columns for other users are NULL and the picture is misleading
+-- rather than merely incomplete.
+SELECT
+    a.pid,
+    a.usename                                                    AS role_name,
+    a.datname                                                    AS database_name,
+    a.client_addr,
+    a.client_hostname,
+    a.client_port,
+    coalesce(nullif(a.application_name, ''), '(not set)')        AS application_name,
+    a.backend_type,
+    a.state,
+    s.ssl                                                        AS ssl_in_use,
+    s.version                                                    AS tls_version,
+    a.backend_start,
+    now() - a.backend_start                                      AS session_age,
+    now() - a.state_change                                       AS time_in_current_state,
+    left(coalesce(a.query, ''), 200)                             AS current_or_last_query
+FROM pg_stat_activity a
+LEFT JOIN pg_stat_ssl s ON s.pid = a.pid
+WHERE a.pid <> pg_backend_pid()
+ORDER BY a.client_addr NULLS LAST, a.backend_start;
+""".strip("\n"),
+               "Read this as an inventory to be explained, row by row: every distinct combination of role_name, client_addr, and application_name should map to a known service, job, or person. Long session_age on a session from an unexpected address is more concerning than a short one -- it has had time to read a great deal. ssl_in_use = false on any session outside the documented internal path means the traffic was also readable on the network. Save this output with its capture time before proceeding; script 04's containment steps destroy it.",
+               required_privileges=PG_MONITOR + " Without `pg_monitor` (or `pg_read_all_stats`), `pg_stat_activity` masks query text and several identity columns for sessions belonging to other roles, which will under-report the anomaly rather than error.",
+               execution_location=ANY_INSTANCE,
+               related_scripts="02_sessions_outside_expected_access_model.sql"),
+    sql_script("02", "02_sessions_outside_expected_access_model", "Classifies every live session against a configurable list of expected roles and an expected client network range, so sessions inconsistent with the documented access model sort to the top.",
+               """
+-- Classifies live sessions against the documented access model instead of
+-- asking an engineer to spot the odd one by eye during an incident. Set the
+-- two variables below from your own access documentation before running:
+-- the defaults are illustrative role names and an RFC1918 application-tier
+-- range, and leaving them unchanged will simply flag everything.
+\\set expected_roles 'app_readwrite,app_readonly,reporting_ro'
+\\set expected_client_cidr '10.0.0.0/8'
+
+SELECT
+    a.pid,
+    a.usename                                                    AS role_name,
+    a.client_addr,
+    coalesce(nullif(a.application_name, ''), '(not set)')        AS application_name,
+    a.state,
+    a.backend_start,
+    NOT (a.usename = ANY (string_to_array(:'expected_roles', ',')))  AS role_not_expected,
+    CASE
+        WHEN a.client_addr IS NULL THEN NULL
+        ELSE NOT (a.client_addr << :'expected_client_cidr'::inet)
+    END                                                          AS source_outside_expected_cidr,
+    a.client_addr IS NULL                                        AS local_or_internal_connection
+FROM pg_stat_activity a
+WHERE a.pid <> pg_backend_pid()
+  AND a.backend_type = 'client backend'
+ORDER BY
+    (NOT (a.usename = ANY (string_to_array(:'expected_roles', ',')))) DESC,
+    (a.client_addr IS NOT NULL
+        AND NOT (a.client_addr << :'expected_client_cidr'::inet)) DESC,
+    a.backend_start;
+""".strip("\n"),
+               "A row with role_not_expected = true AND source_outside_expected_cidr = true is the highest-priority finding in this workflow: an unrecognized identity from an unrecognized network. Either flag alone still needs an explanation -- an expected role from an unexpected address usually means a leaked credential, while an unexpected role from the expected address usually means an undocumented internal tool. local_or_internal_connection = true (NULL client_addr) is characteristic of Aurora-internal activity rather than an application and should be set aside, not chased first. Note that these variables encode *your* documented model, so a clean result only means 'consistent with what was configured here', not 'safe'.",
+               required_privileges=PG_MONITOR,
+               execution_location=ANY_INSTANCE,
+               related_scripts="03_privilege_escalation_surface.sql"),
+    sql_script("03", "03_privilege_escalation_surface", "Enumerates the standing escalation surface -- elevated role attributes, re-grantable privileges, and objects reachable by every role via PUBLIC -- to answer what an implicated identity could have reached.",
+               """
+-- Role attributes that constitute an escalation path in their own right.
+-- rolcreaterole is the important one after superuser membership: a role that
+-- can create roles can create one with privileges and then grant them to
+-- itself, which is how a privilege "nobody granted" appears.
+SELECT
+    r.rolname                                                    AS role_name,
+    r.rolcanlogin,
+    r.rolcreaterole,
+    r.rolcreatedb,
+    r.rolreplication,
+    r.rolbypassrls,
+    r.rolsuper,
+    EXISTS (
+        SELECT 1
+        FROM pg_auth_members m
+        JOIN pg_roles g ON g.oid = m.roleid
+        WHERE m.member = r.oid
+          AND g.rolname = 'rds_superuser'
+    )                                                            AS is_rds_superuser_member
+FROM pg_roles r
+WHERE r.rolname NOT LIKE 'pg\\_%'
+  AND (r.rolcreaterole OR r.rolcreatedb OR r.rolreplication OR r.rolbypassrls OR r.rolsuper)
+ORDER BY r.rolsuper DESC, r.rolcreaterole DESC, r.rolname;
+""".strip("\n") + "\n\n" + """
+-- Object privileges that can be re-granted onward (WITH GRANT OPTION), plus
+-- every privilege held by the PUBLIC pseudo-role. Both are ways an identity
+-- reaches data without ever appearing in that object's expected grantee
+-- list: a grantable privilege lets its holder extend access to others, and
+-- a PUBLIC grant means every role in the cluster already has it.
+SELECT
+    n.nspname                                                    AS schema_name,
+    c.relname                                                    AS relation_name,
+    CASE
+        WHEN a.grantee = 0 THEN 'PUBLIC (every role)'
+        ELSE a.grantee::regrole::text
+    END                                                          AS grantee,
+    a.privilege_type,
+    a.is_grantable,
+    pg_get_userbyid(c.relowner)                                  AS object_owner
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+CROSS JOIN LATERAL aclexplode(c.relacl) AS a
+WHERE c.relkind IN ('r', 'p', 'v', 'm')
+  AND c.relacl IS NOT NULL
+  AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+  AND (a.is_grantable OR a.grantee = 0)
+ORDER BY (a.grantee = 0) DESC, schema_name, relation_name, grantee, a.privilege_type;
+""".strip("\n"),
+               "Every row in the first result set is a standing escalation path; cross-check each against the identity implicated by scripts 01-02, and treat rolcreaterole on a service account as a finding in its own right regardless of this incident's outcome. In the second result set, 'PUBLIC (every role)' rows sort first and mean the implicated identity already had that access without any grant specific to it -- if a wallet, ledger, or order table appears there, the blast radius of the incident is every role in the cluster, not just the one you found. is_grantable = true rows explain how access can spread onward from a single compromised role.",
+               required_privileges=PG_MONITOR + " Full visibility of role attributes and object ACLs may additionally require ownership of the objects concerned; a restricted role sees fewer rows rather than an error, so run this as the audit role used elsewhere in this category.",
+               execution_location=ANY_INSTANCE,
+               related_scripts="04_access_anomaly_containment_runbook.md"),
+    md_script("04", "04_access_anomaly_containment_runbook", "Guarded containment runbook: preserve evidence, block new connections for an implicated role, terminate its sessions, revoke over-broad grants, and hand off to the AWS-side investigation.",
+              (
+                  "## Order of operations (do not reorder)\n\n"
+                  "Containment destroys evidence. Every step below assumes the previous one is "
+                  "complete and its output is saved to the incident record with the capture time.\n\n"
+                  "1. Capture: run `01_current_sessions_by_identity_and_origin.sql`, "
+                  "`02_sessions_outside_expected_access_model.sql`, and "
+                  "`03_privilege_escalation_surface.sql`, saving all output.\n"
+                  "2. Notify: engage security incident response and the owning application team "
+                  "before cutting access, unless active exfiltration is in progress.\n"
+                  "3. Contain (this runbook).\n"
+                  "4. Correlate AWS-side: CloudWatch Logs (if `log_connections` was enabled), "
+                  "CloudTrail (for IAM-authenticated connections and any RDS API activity), and VPC "
+                  "flow logs for the client address captured in step 1.\n\n"
+                  "## Step 1 -- block new connections for the implicated role\n\n"
+                  "Do this *before* terminating sessions. Terminating first simply frees the client "
+                  "to reconnect into the gap, and you will have destroyed the session evidence for "
+                  "nothing:\n\n"
+                  "```sql\n"
+                  "ALTER ROLE compromised_svc NOLOGIN;\n"
+                  "```\n\n"
+                  "Rollback: `ALTER ROLE compromised_svc LOGIN;`. Be explicit with the application "
+                  "owner about what else uses this role -- if it is shared with production traffic, "
+                  "this step is an availability decision as much as a security one, and it must be "
+                  "a recorded, joint decision rather than a unilateral one.\n\n"
+                  "## Step 2 -- terminate the implicated sessions\n\n"
+                  "Terminate by explicit pid, taken from script 01's captured output -- never by a "
+                  "broad predicate, which will sweep up legitimate sessions in the same statement:\n\n"
+                  "```sql\n"
+                  "SELECT pg_terminate_backend(12345);\n"
+                  "```\n\n"
+                  "`pg_terminate_backend()` rolls back the session's in-flight transaction. For an "
+                  "ordinary read that is harmless; if the session was mid-write, the rollback is the "
+                  "correct outcome but the application on the other end will see an error, so confirm "
+                  "which pids you are terminating rather than pasting a list.\n\n"
+                  "There is no rollback for a terminated session. The client may reconnect unless "
+                  "Step 1 has already been applied -- which is exactly why Step 1 comes first.\n\n"
+                  "## Step 3 -- revoke over-broad grants identified in script 03\n\n"
+                  "Revoke the narrowest grant that closes the exposure, and record the exact grant "
+                  "text before revoking it -- the grant is itself evidence of how access was "
+                  "obtained:\n\n"
+                  "```sql\n"
+                  "REVOKE SELECT ON public.wallets FROM PUBLIC;\n"
+                  "```\n\n"
+                  "```sql\n"
+                  "REVOKE GRANT OPTION FOR SELECT ON public.ledger_entries FROM reporting_ro;\n"
+                  "```\n\n"
+                  "Rollback: re-issue the equivalent `GRANT` (including `WITH GRANT OPTION` where it "
+                  "applied). Before revoking anything from PUBLIC, confirm no legitimate role depends "
+                  "on it -- a PUBLIC grant that has existed for years may be the only access path a "
+                  "reporting job has, and revoking it during an incident adds a second outage to the "
+                  "first.\n\n"
+                  "## Step 4 -- rotate credentials\n\n"
+                  "Rotate every credential that could plausibly have been exposed, not only the one "
+                  "observed in use, following the dual-credential pattern in "
+                  "`credential-and-authentication-hygiene/scripts/03_credential_rotation_and_hardening.md`. "
+                  "A role left at `NOLOGIN` is contained but broken; rotation plus re-enabling is what "
+                  "restores service safely.\n\n"
+                  "## Step 5 -- close the network path (AWS side, not SQL)\n\n"
+                  "If the client address captured in script 01 was outside the intended application "
+                  "tier, the durable fix is the security group, not the database. Review the cluster's "
+                  "inbound rules and remove any range broader than the application tier requires; this "
+                  "is a change-managed AWS action and should be reviewed by both the platform and "
+                  "security owners.\n\n"
+                  "## Do NOT\n\n"
+                  "- Do NOT terminate sessions before capturing scripts 01-03; the session inventory "
+                  "exists nowhere else once those backends exit.\n"
+                  "- Do NOT `REVOKE` broadly to 'be safe' during an incident -- an over-broad revoke "
+                  "on a shared table causes an application outage that will be attributed to the "
+                  "attacker and will consume the response team's attention.\n"
+                  "- Do NOT drop the implicated role. Dropping it destroys its ownership and grant "
+                  "history, which the post-incident review and any regulator-facing report will need; "
+                  "`NOLOGIN` contains it just as effectively.\n"
+                  "- Do NOT conclude the investigation from in-database data alone -- PostgreSQL "
+                  "retains no per-session access history by default, so the AWS-side correlation in "
+                  "step 4 of the order of operations is not optional.\n"
+              ),
+              "Work strictly top to bottom: capture, notify, block new connections, terminate by explicit pid, revoke narrowly, rotate, then close the network path. The most common and most costly mistake in this runbook is starting at the termination step because it feels like the decisive action -- it is the step that permanently removes the evidence every subsequent question depends on.",
+              expected_impact="Step 1 blocks all new connections for the role, including legitimate ones. Step 2 aborts in-flight transactions for the terminated sessions. Step 3 changes access for every role covered by the revoked grant, not only the implicated one. Each step is disruptive by design and must be a recorded decision.",
+              required_privileges="CREATEROLE (or rds_superuser) to alter the role; `pg_signal_backend` membership (or rds_superuser) to terminate another role's backends; ownership of the object, or rds_superuser, to revoke its grants.",
+              prerequisites="Scripts 01-03 completed and their output saved to the incident record with capture times; security incident response engaged; the availability impact of containment agreed with the owning application team.",
+              execution_location=WRITER_PREFERRED,
+              expected_runtime="Seconds per statement; the surrounding incident response, credential rotation, and AWS-side correlation run for as long as the incident does.",
+              related_scripts="01_current_sessions_by_identity_and_origin.sql, 03_privilege_escalation_surface.sql"),
+]
+
 
 
 

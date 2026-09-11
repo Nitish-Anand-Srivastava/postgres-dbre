@@ -7,7 +7,7 @@ in `observability/performance-insights/scripts/`.
 | ----- | ------ | ------- | ------ | ---------------- |
 | 01 | `01_current_wait_event_snapshot.sql` | Current backend counts by wait event type/name. | READ ONLY | Low (sub-second to a few seconds) |
 | 02 | `02_active_session_load_by_query.sql` | Active sessions grouped by query_id and wait event, approximating DB load by SQL. | READ ONLY | Low (sub-second to a few seconds) |
-| 03 | `03_enabling_and_interpreting_performance_insights.md` | Runbook: confirm/enable Performance Insights and read its DB load view during an investigation. | LOW RISK WRITE (AWS instance configuration change to enable Performance Insights; no SQL statements executed against the database) | A few minutes to check/enable; the console investigation itself is as long as the incident review requires. |
+| 03 | `03_enabling_and_interpreting_performance_insights.md` | Runbook: confirm/enable Performance Insights and read its DB load view during an investigation. | INFORMATIONAL -- NO SQL EXECUTED, AWS CONSOLE/API GUIDANCE ONLY (the enable step is a change-managed AWS instance modification -- see runbook) | A few minutes to check/enable; the console investigation itself is as long as the incident review requires. |
 
 ## Execution Order
 

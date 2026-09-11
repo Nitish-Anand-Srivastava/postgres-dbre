@@ -39,7 +39,8 @@ full execution table (safety, expected runtime, when to stop).
 
 1. [`scripts/01_pg_cron_extension_and_jobs.sql`](scripts/01_pg_cron_extension_and_jobs.sql) -- Checks whether pg_cron is installed in this database and, if so, lists every job currently registered.
 2. [`scripts/02_pg_cron_recent_job_run_history.sql`](scripts/02_pg_cron_recent_job_run_history.sql) -- Checks whether pg_cron is installed and, if so, reports the most recent run outcome for every registered job.
-3. [`scripts/03_scheduling_runbook.md`](scripts/03_scheduling_runbook.md) -- Documents how to schedule the database-health/ workflows on a recurring basis, via pg_cron where it is enabled or an external scheduler where it is not.
+3. [`scripts/03_quick_health_signal.sql`](scripts/03_quick_health_signal.sql) -- The single lightweight, read-only health signal a scheduled job should capture on every run: instance role, connection headroom, and transaction ID age.
+4. [`scripts/04_scheduling_runbook.md`](scripts/04_scheduling_runbook.md) -- Documents how to schedule the database-health/ workflows on a recurring basis, via pg_cron where it is enabled or an external scheduler where it is not.
 
 ## 8. Interpretation Guide
 

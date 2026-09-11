@@ -1,4 +1,4 @@
-# 04_scheduling_runbook
+# 05_scheduling_runbook
 
 > **This is a manual remediation/runbook template, not an automatic script.**
 > It contains guarded, potentially disruptive steps. Read it fully, adapt the
@@ -7,7 +7,7 @@
 
 | Field | Value |
 |---|---|
-| Script name | `04_scheduling_runbook.md` |
+| Script name | `05_scheduling_runbook.md` |
 | Purpose | Documents how to run the index-health snapshot scripts on a recurring schedule via pg_cron or an external scheduler. |
 | Aurora PostgreSQL version | Aurora PostgreSQL 17+ (compatible with community PostgreSQL 17+ unless a note says otherwise) |
 | Execution location | Writer instance only (the query reads/writes state that only exists or is meaningful on the writer) |
@@ -15,7 +15,7 @@
 | Expected impact | Varies by step -- read each step's own warning before executing it. |
 | Required privileges | Table owner, or a role granted the `MAINTAIN` privilege on the table (PostgreSQL 16+), or a role with `pg_maintain` membership. DDL variants additionally require the privileges needed for the specific DDL statement (e.g. ownership to ALTER TABLE). |
 | Prerequisites | Full read-only investigation for this workflow completed; maintenance window and second engineer approval obtained. |
-| Execution order | Step 04 of workflow `automation/index-monitoring` |
+| Execution order | Step 05 of workflow `automation/index-monitoring` |
 | Related scripts | ../growth-monitoring/README.md, ../../tables-and-indexes/unused-indexes/README.md |
 
 ## How to interpret / use this runbook

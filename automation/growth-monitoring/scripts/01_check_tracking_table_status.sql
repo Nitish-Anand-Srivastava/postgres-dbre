@@ -48,5 +48,5 @@ SELECT
     now() - max(captured_at)                      AS time_since_latest_capture
 FROM dba_toolkit.table_size_history;
 \else
-SELECT :'tracking_table' || ' does not exist in this database yet. See the deployment runbook in this workflow (script 03) to create it and schedule its periodic collector. Every growth/capacity-forecasting script in this toolkit that depends on it will continue to work today, printing the same notice, until it is deployed.' AS notice;
+SELECT :'tracking_table' || ' does not exist in this database yet. See the deployment runbook in this workflow (script 04) to create it and schedule its periodic collector. Every growth/capacity-forecasting script in this toolkit that depends on it will continue to work today, printing the same notice, until it is deployed.' AS notice;
 \endif

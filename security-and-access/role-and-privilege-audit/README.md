@@ -84,3 +84,5 @@ Escalate beyond the on-call DBA when any of the following are true:
 - [unused-and-orphaned-roles](../unused-and-orphaned-roles/README.md)
 - [public-schema-exposure](../public-schema-exposure/README.md)
 - [audit-logging-and-iam-auth](../audit-logging-and-iam-auth/README.md)
+- [row-level-security-review](../row-level-security-review/README.md)
+- [access-anomaly-investigation](../access-anomaly-investigation/README.md)

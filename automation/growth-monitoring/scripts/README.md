@@ -7,7 +7,8 @@ in `automation/growth-monitoring/scripts/`.
 | ----- | ------ | ------- | ------ | ---------------- |
 | 01 | `01_check_tracking_table_status.sql` | Tracking table existence, row count, and capture window. | READ ONLY | Low (sub-second to a few seconds) |
 | 02 | `02_verify_collection_cadence.sql` | Gaps between consecutive collection timestamps, largest first. | READ ONLY | Low (sub-second to a few seconds) |
-| 03 | `03_deploy_collector_runbook.md` | Collector deployment runbook: schema, table DDL, population query, and scheduling. | GUARDED -- MANUAL EXECUTION ONLY (see safety warnings in this file before running any statement) | Variable -- depends on table size and chosen batch size; see runbook. |
+| 03 | `03_growth_rate_from_history.sql` | Per-table growth between the earliest and latest sample in the window. | READ ONLY | Low (sub-second to a few seconds) |
+| 04 | `04_deploy_collector_runbook.md` | Collector deployment runbook: schema, table DDL, population query, and scheduling. | GUARDED -- MANUAL EXECUTION ONLY (see safety warnings in this file before running any statement) | Variable -- depends on table size and chosen batch size; see runbook. |
 
 ## Execution Order
 
@@ -39,4 +40,4 @@ header contains a `HOW TO INTERPRET RESULTS` section, and the parent
 
 ## Scripts That Should Not Be Run During Severe Incidents
 
-- 03_deploy_collector_runbook.md -- Varies by step -- read each step's own warning before executing it.
+- 04_deploy_collector_runbook.md -- Varies by step -- read each step's own warning before executing it.

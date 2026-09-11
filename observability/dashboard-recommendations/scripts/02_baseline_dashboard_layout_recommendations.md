@@ -11,7 +11,7 @@
 | Purpose | Proposed baseline panel layout for a Grafana/CloudWatch Aurora PostgreSQL DBA dashboard, grouped by operational question. |
 | Aurora PostgreSQL version | Aurora PostgreSQL 17+ (compatible with community PostgreSQL 17+ unless a note says otherwise) |
 | Execution location | Any instance (writer or reader) |
-| Safety | READ ONLY (reference/planning documentation only; no SQL statements are executed by this file) |
+| Safety | INFORMATIONAL -- NO SQL EXECUTED, DASHBOARD/ALERTING DESIGN GUIDANCE ONLY |
 | Expected impact | None -- this is reference/planning documentation, not an executable script. Any AWS-side action it describes (enabling a feature, creating an alarm) is called out explicitly and is a change-managed action outside this repository's SQL scope. |
 | Required privileges | Role membership in `pg_monitor` (or `pg_read_all_stats`) is sufficient. No superuser required. |
 | Prerequisites | None to read this reference. Each panel's underlying script/metric has its own prerequisites. |

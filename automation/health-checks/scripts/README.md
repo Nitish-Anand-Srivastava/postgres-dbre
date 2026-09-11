@@ -7,7 +7,8 @@ in `automation/health-checks/scripts/`.
 | ----- | ------ | ------- | ------ | ---------------- |
 | 01 | `01_pg_cron_extension_and_jobs.sql` | Registered pg_cron jobs, if the extension is installed. | READ ONLY | Low (sub-second to a few seconds) |
 | 02 | `02_pg_cron_recent_job_run_history.sql` | Recent pg_cron job run outcomes, if the extension is installed. | READ ONLY | Low (sub-second to a few seconds) |
-| 03 | `03_scheduling_runbook.md` | Scheduling runbook for database-health workflows (pg_cron or external scheduler). | GUARDED -- MANUAL EXECUTION ONLY (see safety warnings in this file before running any statement) | Variable -- depends on table size and chosen batch size; see runbook. |
+| 03 | `03_quick_health_signal.sql` | Quick unattended health signal: role, connection headroom, XID age. | READ ONLY | Low (sub-second to a few seconds) |
+| 04 | `04_scheduling_runbook.md` | Scheduling runbook for database-health workflows (pg_cron or external scheduler). | GUARDED -- MANUAL EXECUTION ONLY (see safety warnings in this file before running any statement) | Variable -- depends on table size and chosen batch size; see runbook. |
 
 ## Execution Order
 
@@ -39,4 +40,4 @@ header contains a `HOW TO INTERPRET RESULTS` section, and the parent
 
 ## Scripts That Should Not Be Run During Severe Incidents
 
-- 03_scheduling_runbook.md -- Varies by step -- read each step's own warning before executing it.
+- 04_scheduling_runbook.md -- Varies by step -- read each step's own warning before executing it.

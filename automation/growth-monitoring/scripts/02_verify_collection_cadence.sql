@@ -28,7 +28,7 @@ EXECUTION ORDER:
 Step 02 of workflow 'automation/growth-monitoring'
 
 RELATED SCRIPTS:
-03_deploy_collector_runbook.md
+03_growth_rate_from_history.sql
 
 HOW TO INTERPRET RESULTS:
 This lists the largest gaps between consecutive collection runs over the lookback window, largest first. A consistent cadence shows every gap close to the intended collection interval (e.g. 1 hour). A gap much larger than the intended interval means the collector missed one or more scheduled runs during that window -- correlate the timing against the pg_cron job run history (automation/health-checks) or the external scheduler's own logs to find why.
@@ -62,5 +62,5 @@ WHERE gap_since_previous IS NOT NULL
 ORDER BY gap_since_previous DESC
 LIMIT 20;
 \else
-SELECT :'tracking_table' || ' does not exist in this database yet, so no collection cadence can be verified. See the deployment runbook in this workflow (script 03).' AS notice;
+SELECT :'tracking_table' || ' does not exist in this database yet, so no collection cadence can be verified. See the deployment runbook in this workflow (script 04).' AS notice;
 \endif

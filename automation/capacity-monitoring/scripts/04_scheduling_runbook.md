@@ -1,4 +1,4 @@
-# 03_scheduling_runbook
+# 04_scheduling_runbook
 
 > **This is a manual remediation/runbook template, not an automatic script.**
 > It contains guarded, potentially disruptive steps. Read it fully, adapt the
@@ -7,7 +7,7 @@
 
 | Field | Value |
 |---|---|
-| Script name | `03_scheduling_runbook.md` |
+| Script name | `04_scheduling_runbook.md` |
 | Purpose | Documents how to schedule the capacity snapshot scripts with threshold-based alerting, via an external scheduler (preferred, since it can alert directly) or pg_cron plus a separate poller. |
 | Aurora PostgreSQL version | Aurora PostgreSQL 17+ (compatible with community PostgreSQL 17+ unless a note says otherwise) |
 | Execution location | Writer instance only (the query reads/writes state that only exists or is meaningful on the writer) |
@@ -15,7 +15,7 @@
 | Expected impact | Varies by step -- read each step's own warning before executing it. |
 | Required privileges | Table owner, or a role granted the `MAINTAIN` privilege on the table (PostgreSQL 16+), or a role with `pg_maintain` membership. DDL variants additionally require the privileges needed for the specific DDL statement (e.g. ownership to ALTER TABLE). |
 | Prerequisites | Full read-only investigation for this workflow completed; maintenance window and second engineer approval obtained. |
-| Execution order | Step 03 of workflow `automation/capacity-monitoring` |
+| Execution order | Step 04 of workflow `automation/capacity-monitoring` |
 | Related scripts | ../health-checks/README.md, ../../storage-and-capacity/capacity-forecasting/README.md, ../../database-health/capacity-health-check/README.md |
 
 ## How to interpret / use this runbook
@@ -33,7 +33,7 @@ Unlike growth-monitoring or xid-monitoring, capacity thresholds (connection util
 An AWS Lambda function on an Amazon EventBridge (CloudWatch Events) scheduled rule:
 
 1. Connects to the writer endpoint (directly, or via the RDS Data API) using the standard read-only `pg_monitor` role.
-2. Runs the two snapshot scripts in this workflow.
+2. Runs the snapshot scripts in this workflow.
 3. Publishes the key figures (`pct_utilized`, database size deltas, `pct_forced_checkpoints`) as CloudWatch custom metrics.
 4. Relies on standard CloudWatch alarms on those custom metrics for paging -- this reuses your existing alerting infrastructure rather than building a new one.
 

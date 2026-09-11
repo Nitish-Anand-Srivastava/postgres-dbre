@@ -54,5 +54,5 @@ SELECT
 FROM cron.job
 ORDER BY jobid;
 \else
-SELECT 'pg_cron is not installed in this database, so no scheduled jobs are registered here. See the scheduling runbook in this workflow (script 03) for how to enable it via the Aurora cluster parameter group, or how to use an external scheduler instead if pg_cron is not appropriate for this cluster.' AS notice;
+SELECT 'pg_cron is not installed in this database, so no scheduled jobs are registered here. See the scheduling runbook in this workflow (script 04) for how to enable it via the Aurora cluster parameter group, or how to use an external scheduler instead if pg_cron is not appropriate for this cluster.' AS notice;
 \endif

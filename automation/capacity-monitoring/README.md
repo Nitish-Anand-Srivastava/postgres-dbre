@@ -38,7 +38,8 @@ full execution table (safety, expected runtime, when to stop).
 
 1. [`scripts/01_storage_and_connection_snapshot.sql`](scripts/01_storage_and_connection_snapshot.sql) -- Storage-size and connection-utilization snapshot, intended to be captured on every scheduled run and compared against documented thresholds.
 2. [`scripts/02_io_and_checkpoint_snapshot.sql`](scripts/02_io_and_checkpoint_snapshot.sql) -- Per-backend-type I/O and checkpoint-pressure snapshot, intended to be captured on every scheduled run since I/O-tier capacity is a separate dimension from raw storage bytes.
-3. [`scripts/03_scheduling_runbook.md`](scripts/03_scheduling_runbook.md) -- Documents how to schedule the capacity snapshot scripts with threshold-based alerting, via an external scheduler (preferred, since it can alert directly) or pg_cron plus a separate poller.
+3. [`scripts/03_largest_objects_and_growth_trend.sql`](scripts/03_largest_objects_and_growth_trend.sql) -- Largest-object snapshot plus, where the growth-monitoring collector is deployed, the actual per-table growth rate over the retention window -- the two halves of a capacity trend.
+4. [`scripts/04_scheduling_runbook.md`](scripts/04_scheduling_runbook.md) -- Documents how to schedule the capacity snapshot scripts with threshold-based alerting, via an external scheduler (preferred, since it can alert directly) or pg_cron plus a separate poller.
 
 ## 8. Interpretation Guide
 
@@ -73,6 +74,7 @@ Escalate beyond the on-call DBA when any of the following are true:
 ## 12. Related Issues
 
 - [health-checks](../health-checks/README.md)
+- [growth-monitoring](../growth-monitoring/README.md)
 - [capacity-forecasting](../../storage-and-capacity/capacity-forecasting/README.md)
 - [capacity-health-check](../../database-health/capacity-health-check/README.md)
 - [max-connections-planning](../../connections/max-connections-planning/README.md)

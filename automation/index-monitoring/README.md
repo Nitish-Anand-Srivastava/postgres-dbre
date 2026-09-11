@@ -40,7 +40,8 @@ full execution table (safety, expected runtime, when to stop).
 1. [`scripts/01_unused_indexes_snapshot.sql`](scripts/01_unused_indexes_snapshot.sql) -- Unused-index candidate snapshot, intended to be captured on every scheduled run.
 2. [`scripts/02_invalid_indexes_snapshot.sql`](scripts/02_invalid_indexes_snapshot.sql) -- INVALID-index snapshot, intended to be captured on every scheduled run so a failed concurrent build is caught promptly rather than discovered incidentally.
 3. [`scripts/03_index_usage_and_size_snapshot.sql`](scripts/03_index_usage_and_size_snapshot.sql) -- Index size, scan-count, and last-used snapshot, intended to be captured on every scheduled run to track index-growth and usage trends over time.
-4. [`scripts/04_scheduling_runbook.md`](scripts/04_scheduling_runbook.md) -- Documents how to run the index-health snapshot scripts on a recurring schedule via pg_cron or an external scheduler.
+4. [`scripts/04_duplicate_indexes_snapshot.sql`](scripts/04_duplicate_indexes_snapshot.sql) -- Redundant/duplicate index snapshot, intended to be captured on every scheduled run so indexes added by successive migrations that duplicate an existing one are caught early.
+5. [`scripts/05_scheduling_runbook.md`](scripts/05_scheduling_runbook.md) -- Documents how to run the index-health snapshot scripts on a recurring schedule via pg_cron or an external scheduler.
 
 ## 8. Interpretation Guide
 

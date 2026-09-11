@@ -79,3 +79,5 @@ Escalate beyond the on-call DBA when any of the following are true:
 
 - [role-and-privilege-audit](../role-and-privilege-audit/README.md)
 - [ssl-and-connection-security](../ssl-and-connection-security/README.md)
+- [credential-and-authentication-hygiene](../credential-and-authentication-hygiene/README.md)
+- [access-anomaly-investigation](../access-anomaly-investigation/README.md)

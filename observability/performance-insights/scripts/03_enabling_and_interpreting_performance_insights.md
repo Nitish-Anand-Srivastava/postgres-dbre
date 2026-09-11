@@ -11,7 +11,7 @@
 | Purpose | Runbook for confirming/enabling Performance Insights on a DB instance and reading its DB load view correctly during an investigation. |
 | Aurora PostgreSQL version | Aurora PostgreSQL 17+ (compatible with community PostgreSQL 17+ unless a note says otherwise) |
 | Execution location | Any instance (writer or reader) |
-| Safety | LOW RISK WRITE (AWS instance configuration change to enable Performance Insights; no SQL statements executed against the database) |
+| Safety | INFORMATIONAL -- NO SQL EXECUTED, AWS CONSOLE/API GUIDANCE ONLY (the enable step is a change-managed AWS instance modification -- see runbook) |
 | Expected impact | None -- this is reference/planning documentation, not an executable script. Any AWS-side action it describes (enabling a feature, creating an alarm) is called out explicitly and is a change-managed action outside this repository's SQL scope. |
 | Required privileges | IAM permission to describe/modify the DB instance and to view Performance Insights (pi:GetResourceMetrics, pi:DescribeDimensionKeys, rds:ModifyDBInstance) for the enable step; no PostgreSQL role required for the console/API portions. |
 | Prerequisites | None to read this runbook. Enabling Performance Insights on an existing instance should be scheduled like any other instance-modifying change. |

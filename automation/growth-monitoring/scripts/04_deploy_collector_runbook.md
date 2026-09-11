@@ -1,4 +1,4 @@
-# 03_deploy_collector_runbook
+# 04_deploy_collector_runbook
 
 > **This is a manual remediation/runbook template, not an automatic script.**
 > It contains guarded, potentially disruptive steps. Read it fully, adapt the
@@ -7,7 +7,7 @@
 
 | Field | Value |
 |---|---|
-| Script name | `03_deploy_collector_runbook.md` |
+| Script name | `04_deploy_collector_runbook.md` |
 | Purpose | Documents the exact DDL for dba_toolkit.table_size_history and the periodic collector job that populates it -- deliberate, reviewed infrastructure you deploy once, not something to pipe into psql unread. |
 | Aurora PostgreSQL version | Aurora PostgreSQL 17+ (compatible with community PostgreSQL 17+ unless a note says otherwise) |
 | Execution location | Writer instance only (the query reads/writes state that only exists or is meaningful on the writer) |
@@ -15,7 +15,7 @@
 | Expected impact | Varies by step -- read each step's own warning before executing it. |
 | Required privileges | Table owner, or a role granted the `MAINTAIN` privilege on the table (PostgreSQL 16+), or a role with `pg_maintain` membership. DDL variants additionally require the privileges needed for the specific DDL statement (e.g. ownership to ALTER TABLE). |
 | Prerequisites | Full read-only investigation for this workflow completed; maintenance window and second engineer approval obtained. |
-| Execution order | Step 03 of workflow `automation/growth-monitoring` |
+| Execution order | Step 04 of workflow `automation/growth-monitoring` |
 | Related scripts | 01_check_tracking_table_status.sql, ../../tables-and-indexes/rapidly-growing-tables/README.md, ../../storage-and-capacity/table-growth/README.md |
 
 ## How to interpret / use this runbook
@@ -98,4 +98,4 @@ Thirteen months keeps a full year of history available for year-over-year growth
 
 ## 5. Confirm it is working
 
-Run script 01 in this workflow immediately after deployment to confirm the table exists, and again after at least two collection intervals have elapsed to confirm rows are actually accumulating. Run script 02 after at least a week to confirm the collection cadence is healthy.
+Run script 01 in this workflow immediately after deployment to confirm the table exists, and again after at least two collection intervals have elapsed to confirm rows are actually accumulating. Run script 02 after at least a week to confirm the collection cadence is healthy, and script 03 to read the growth rates the collector now makes computable.

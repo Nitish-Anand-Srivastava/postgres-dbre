@@ -11,9 +11,9 @@
 | Purpose | Reference table mapping key Aurora CloudWatch metrics to their SQL-level companion query and recommended alarm guidance. |
 | Aurora PostgreSQL version | Aurora PostgreSQL 17+ (compatible with community PostgreSQL 17+ unless a note says otherwise) |
 | Execution location | Any instance (writer or reader) |
-| Safety | READ ONLY (reference documentation only; no SQL statements are executed by this file) |
+| Safety | INFORMATIONAL -- NO SQL EXECUTED, AWS CONSOLE/API GUIDANCE ONLY (reference mapping; any CloudWatch alarm change is a change-managed AWS action) |
 | Expected impact | None -- this is reference/planning documentation, not an executable script. Any AWS-side action it describes (enabling a feature, creating an alarm) is called out explicitly and is a change-managed action outside this repository's SQL scope. |
-| Required privileges | Role membership in `pg_monitor` (or `pg_read_all_stats`) is sufficient. No superuser required. |
+| Required privileges | IAM permission to view CloudWatch metrics/alarms for the console portions; the SQL scripts this table points at require pg_monitor as usual. |
 | Prerequisites | None to read this reference. The scripts it links to have their own prerequisites. |
 | Execution order | Step 03 of workflow `observability/cloudwatch` |
 | Related scripts | 01_sql_side_capacity_and_load_snapshot.sql, 02_replication_lag_sql_companion.sql |

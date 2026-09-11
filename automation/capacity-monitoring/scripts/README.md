@@ -7,7 +7,8 @@ in `automation/capacity-monitoring/scripts/`.
 | ----- | ------ | ------- | ------ | ---------------- |
 | 01 | `01_storage_and_connection_snapshot.sql` | Database sizes and connection utilization, for scheduled capture. | READ ONLY | Low (sub-second to a few seconds) |
 | 02 | `02_io_and_checkpoint_snapshot.sql` | I/O statistics by backend type and checkpoint activity, for scheduled capture. | READ ONLY | Low (sub-second to a few seconds) |
-| 03 | `03_scheduling_runbook.md` | Scheduling runbook for capacity threshold monitoring (external scheduler preferred, or pg_cron). | GUARDED -- MANUAL EXECUTION ONLY (see safety warnings in this file before running any statement) | Variable -- depends on table size and chosen batch size; see runbook. |
+| 03 | `03_largest_objects_and_growth_trend.sql` | Largest objects now, plus growth over the collector's retention window. | READ ONLY | Low, but the largest-objects portion touches every relation's size on disk -- run it off-peak on a cluster with very many relations. |
+| 04 | `04_scheduling_runbook.md` | Scheduling runbook for capacity threshold monitoring (external scheduler preferred, or pg_cron). | GUARDED -- MANUAL EXECUTION ONLY (see safety warnings in this file before running any statement) | Variable -- depends on table size and chosen batch size; see runbook. |
 
 ## Execution Order
 
@@ -39,4 +40,4 @@ header contains a `HOW TO INTERPRET RESULTS` section, and the parent
 
 ## Scripts That Should Not Be Run During Severe Incidents
 
-- 03_scheduling_runbook.md -- Varies by step -- read each step's own warning before executing it.
+- 04_scheduling_runbook.md -- Varies by step -- read each step's own warning before executing it.

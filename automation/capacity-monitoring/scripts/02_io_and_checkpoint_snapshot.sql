@@ -28,7 +28,7 @@ EXECUTION ORDER:
 Step 02 of workflow 'automation/capacity-monitoring'
 
 RELATED SCRIPTS:
-03_scheduling_runbook.md
+03_largest_objects_and_growth_trend.sql
 
 HOW TO INTERPRET RESULTS:
 A rising pct_forced_checkpoints trend across successive scheduled runs, or a growing read/write byte volume attributable to a specific backend_type, is the early signal that an I/O-tier or checkpoint-tuning review is worth scheduling ahead of any user-visible latency impact -- exactly the same interpretation as storage-and-capacity/capacity-forecasting's equivalent script, just captured automatically instead of on demand.

@@ -196,7 +196,7 @@ FROM cron.job
 ORDER BY jobid;""",
             "pg_cron is not installed in this database, so no scheduled jobs are "
             "registered here. See the scheduling runbook in this workflow (script "
-            "03) for how to enable it via the Aurora cluster parameter group, or "
+            "04) for how to enable it via the Aurora cluster parameter group, or "
             "how to use an external scheduler instead if pg_cron is not "
             "appropriate for this cluster.",
         ),
@@ -224,16 +224,25 @@ WHERE r.start_time > now() - make_interval(hours => :lookback_hours)
 ORDER BY r.start_time DESC;""",
             "pg_cron is not installed in this database, so no job run history "
             "is available. See the scheduling runbook in this workflow (script "
-            "03) for how to enable it, or how to use an external scheduler "
+            "04) for how to enable it, or how to use an external scheduler "
             "instead.",
         ),
         "A status of failed, or a return_message describing an error, means the schedule exists but the check is not actually running successfully -- this is worse than having no schedule at all, because it creates false confidence. Review failures immediately; a job that has failed on every run since it was created has never actually protected anything.",
         prerequisites=PG_CRON_PREREQ,
-        related_scripts="03_scheduling_runbook.md",
+        related_scripts="03_quick_health_signal.sql",
         table_purpose="Recent pg_cron job run outcomes, if the extension is installed.",
     ),
+    sql_script(
+        "03", "03_quick_health_signal",
+        "The single lightweight, read-only health signal a scheduled job should capture on every run: instance role, connection headroom, and transaction ID age.",
+        sb.cluster_recovery_role() + "\n\n" + sb.max_connections_headroom() + "\n\n" + sb.database_transaction_age(),
+        "This is the deliberately small subset of database-health/comprehensive-health-check that is cheap enough to run every few minutes unattended: it answers 'am I talking to the writer', 'are we close to the connection ceiling', and 'is XID age climbing'. Alert on pct_utilized above roughly 80% sustained across consecutive runs and on pct_of_freeze_max_age above 40-50%; treat is_reader_instance = true on what the scheduler believes is the writer endpoint as an immediate signal that a failover has occurred (see replication-and-ha/failover-investigation). Anything this script flags is a trigger to run the full comprehensive-health-check workflow, not a diagnosis on its own.",
+        execution_location=WRITER_PREFERRED,
+        related_scripts="04_scheduling_runbook.md, ../../database-health/comprehensive-health-check/README.md",
+        table_purpose="Quick unattended health signal: role, connection headroom, XID age.",
+    ),
     md_script(
-        "03", "03_scheduling_runbook",
+        "04", "04_scheduling_runbook",
         "Documents how to schedule the database-health/ workflows on a recurring basis, via pg_cron where it is enabled or an external scheduler where it is not.",
         (
             "## Option A: pg_cron (requires it to already be enabled)\n\n"
@@ -337,7 +346,7 @@ WORKFLOWS.append(_wf(
         "For deployment: a role with `CREATE` privilege on the target database (to create the `dba_toolkit` schema and table) and, if scheduling via pg_cron, the prerequisites in automation/health-checks.",
     ],
     interpretation_guide=[
-        "A tracking_table_exists = false result from script 01 is not a failure of this workflow -- it is the expected state before the collector has ever been deployed. Proceed to the runbook in script 03.",
+        "A tracking_table_exists = false result from script 01 is not a failure of this workflow -- it is the expected state before the collector has ever been deployed. Proceed to the runbook in script 04.",
         "A tracking table that exists but whose latest_capture_at is far in the past (days, for a collector intended to run hourly or daily) means the collector has stopped running -- check the scheduling mechanism (pg_cron job status via automation/health-checks, or the external scheduler's own logs) rather than assuming the table itself needs fixing.",
         "distinct_tables_tracked growing over time as new tables are created is expected and healthy; a sudden drop suggests the collector's population query is filtering more narrowly than intended (e.g. a schema exclusion that now excludes a schema it should not).",
     ],
@@ -349,7 +358,7 @@ WORKFLOWS.append(_wf(
     ],
     production_safety=[
         "The two `.sql` scripts in this workflow are strictly read-only.",
-        "The deployment runbook (script 03) contains DDL and a scheduled INSERT job -- it is markdown, deliberately never an auto-executing script, and must be reviewed and applied by an operator.",
+        "The deployment runbook (script 04) contains DDL and a scheduled INSERT job -- it is markdown, deliberately never an auto-executing script, and must be reviewed and applied by an operator.",
         "The collector's own periodic INSERT is lightweight (one row per tracked relation per collection interval) and its read query (`pg_total_relation_size()` per relation) is the same catalog-only read every other sizing script in this toolkit already performs.",
     ],
     escalation_criteria=["The collector has been down (no new rows) for long enough that a business-critical capacity decision cannot be made from trend data -- treat the immediate priority as restoring collection, and fall back to storage-and-capacity's single-point-in-time scripts for the decision at hand."],
@@ -376,7 +385,7 @@ wf.scripts = [
     now() - max(captured_at)                      AS time_since_latest_capture
 FROM dba_toolkit.table_size_history;""",
             " does not exist in this database yet. See the deployment runbook "
-            "in this workflow (script 03) to create it and schedule its "
+            "in this workflow (script 04) to create it and schedule its "
             "periodic collector. Every growth/capacity-forecasting script in "
             "this toolkit that depends on it will continue to work today, "
             "printing the same notice, until it is deployed.",
@@ -414,15 +423,23 @@ ORDER BY gap_since_previous DESC
 LIMIT 20;""",
             " does not exist in this database yet, so no collection cadence "
             "can be verified. See the deployment runbook in this workflow "
-            "(script 03).",
+            "(script 04).",
         ),
         "This lists the largest gaps between consecutive collection runs over the lookback window, largest first. A consistent cadence shows every gap close to the intended collection interval (e.g. 1 hour). A gap much larger than the intended interval means the collector missed one or more scheduled runs during that window -- correlate the timing against the pg_cron job run history (automation/health-checks) or the external scheduler's own logs to find why.",
         prerequisites=TRACKING_TABLE_NOTE,
-        related_scripts="03_deploy_collector_runbook.md",
+        related_scripts="03_growth_rate_from_history.sql",
         table_purpose="Gaps between consecutive collection timestamps, largest first.",
     ),
+    sql_script(
+        "03", "03_growth_rate_from_history",
+        "The payoff query: computes actual per-table growth over the retention window from the collected history, which is the whole reason the collector exists.",
+        sb.table_growth_rate_from_snapshot(),
+        "This is the same block every growth/capacity workflow in this toolkit calls (sql_blocks.table_growth_rate_from_snapshot()), run here against the collector this workflow owns. Rank by growth_over_window, not by end_size_bytes: a moderately sized ledger or trade-fills table doubling every month is a nearer-term capacity and archival problem than a much larger but flat reference table. Feed the fastest-growing tables into archival-and-data-lifecycle/archive-large-table and into partitioning planning. If this prints the instructional notice instead of rows, the collector has not been deployed yet (script 04) or has collected fewer than two samples inside the lookback window.",
+        related_scripts="04_deploy_collector_runbook.md, ../../tables-and-indexes/large-tables/README.md, ../../archival-and-data-lifecycle/archive-large-table/README.md",
+        table_purpose="Per-table growth between the earliest and latest sample in the window.",
+    ),
     md_script(
-        "03", "03_deploy_collector_runbook",
+        "04", "04_deploy_collector_runbook",
         "Documents the exact DDL for dba_toolkit.table_size_history and the periodic collector job that populates it -- deliberate, reviewed infrastructure you deploy once, not something to pipe into psql unread.",
         (
             "Read this runbook in full before running anything in it. It creates a new schema and "
@@ -502,7 +519,8 @@ LIMIT 20;""",
             "Run script 01 in this workflow immediately after deployment to confirm the table "
             "exists, and again after at least two collection intervals have elapsed to confirm "
             "rows are actually accumulating. Run script 02 after at least a week to confirm the "
-            "collection cadence is healthy.\n"
+            "collection cadence is healthy, and script 03 to read the growth rates the collector "
+            "now makes computable.\n"
         ),
         "This is infrastructure you deploy deliberately, not a script to run unread. Follow the numbered steps in order, adapt the schedule and retention window to your own operational cadence, and verify with scripts 01 and 02 afterward.",
         related_scripts="01_check_tracking_table_status.sql, ../../tables-and-indexes/rapidly-growing-tables/README.md, ../../storage-and-capacity/table-growth/README.md",
@@ -715,11 +733,19 @@ wf.scripts = [
         "Index size, scan-count, and last-used snapshot, intended to be captured on every scheduled run to track index-growth and usage trends over time.",
         sb.index_bloat_and_usage(),
         "Recorded over successive scheduled runs, this is what actually shows an index-growth trend (storage-and-capacity/index-growth) rather than a single size figure -- an index whose size is climbing release over release with a flat or falling idx_scan is a much stronger over-indexing signal than either fact alone.",
-        related_scripts="04_scheduling_runbook.md",
+        related_scripts="04_duplicate_indexes_snapshot.sql",
         table_purpose="Index size and usage, for scheduled capture.",
     ),
+    sql_script(
+        "04", "04_duplicate_indexes_snapshot",
+        "Redundant/duplicate index snapshot, intended to be captured on every scheduled run so indexes added by successive migrations that duplicate an existing one are caught early.",
+        sb.duplicate_indexes(),
+        "Duplicates accumulate silently: two migrations, months apart, each add an index on the same leading column of an orders or trades table and nothing fails -- the cluster just pays for both on every write. A row that appears here for the first time on a scheduled run almost always traces to the most recent migration; review it against that change before it becomes permanent. Confirm the pair is genuinely redundant (identical column list, order, opclass, and predicate) via tables-and-indexes/duplicate-indexes before dropping either one.",
+        related_scripts="05_scheduling_runbook.md",
+        table_purpose="Duplicate/redundant index candidates, for scheduled capture.",
+    ),
     md_script(
-        "04", "04_scheduling_runbook",
+        "05", "05_scheduling_runbook",
         "Documents how to run the index-health snapshot scripts on a recurring schedule via pg_cron or an external scheduler.",
         (
             "## Recommended cadence\n\n"
@@ -822,6 +848,7 @@ WORKFLOWS.append(_wf(
     escalation_criteria=["A scheduled check reports sustained (not a single transient) breach of a connection-headroom or storage-growth threshold -- escalate to connections/max-connections-planning or storage-and-capacity/capacity-forecasting respectively for the detailed remediation path."],
     related_issues=[
         "../health-checks/README.md",
+        "../growth-monitoring/README.md",
         "../../storage-and-capacity/capacity-forecasting/README.md",
         "../../database-health/capacity-health-check/README.md",
         "../../connections/max-connections-planning/README.md",
@@ -843,11 +870,21 @@ wf.scripts = [
         sb.pg_stat_io_summary() + "\n\n" + sb.checkpoint_activity(),
         "A rising pct_forced_checkpoints trend across successive scheduled runs, or a growing read/write byte volume attributable to a specific backend_type, is the early signal that an I/O-tier or checkpoint-tuning review is worth scheduling ahead of any user-visible latency impact -- exactly the same interpretation as storage-and-capacity/capacity-forecasting's equivalent script, just captured automatically instead of on demand.",
         execution_location=WRITER_PREFERRED,
-        related_scripts="03_scheduling_runbook.md",
+        related_scripts="03_largest_objects_and_growth_trend.sql",
         table_purpose="I/O statistics by backend type and checkpoint activity, for scheduled capture.",
     ),
+    sql_script(
+        "03", "03_largest_objects_and_growth_trend",
+        "Largest-object snapshot plus, where the growth-monitoring collector is deployed, the actual per-table growth rate over the retention window -- the two halves of a capacity trend.",
+        sb.largest_tables() + "\n\n" + sb.table_growth_rate_from_snapshot(),
+        "The first result is a point-in-time ranking: which objects dominate the volume today. The second is the part that actually supports a forecast, and it only returns rows once automation/growth-monitoring's dba_toolkit.table_size_history collector has been running for at least two collection intervals -- until then it prints an instructional notice, which is the expected state, not an error. Alert on growth rate, not absolute size: a trade-fills, order-events, or audit-ledger table adding a predictable amount per day tells you when the current storage and instance sizing runs out, which is the number a capacity review actually needs. Hand the fastest growers to archival-and-data-lifecycle/archive-large-table or a partitioning plan well before the ceiling.",
+        execution_location=WRITER_PREFERRED,
+        expected_runtime="Low, but the largest-objects portion touches every relation's size on disk -- run it off-peak on a cluster with very many relations.",
+        related_scripts="04_scheduling_runbook.md, ../growth-monitoring/README.md, ../../tables-and-indexes/large-tables/README.md",
+        table_purpose="Largest objects now, plus growth over the collector's retention window.",
+    ),
     md_script(
-        "03", "03_scheduling_runbook",
+        "04", "04_scheduling_runbook",
         "Documents how to schedule the capacity snapshot scripts with threshold-based alerting, via an external scheduler (preferred, since it can alert directly) or pg_cron plus a separate poller.",
         (
             "## Why an external scheduler is usually preferred here\n\n"
@@ -861,7 +898,7 @@ wf.scripts = [
             "An AWS Lambda function on an Amazon EventBridge (CloudWatch Events) scheduled rule:\n\n"
             "1. Connects to the writer endpoint (directly, or via the RDS Data API) using the "
             "standard read-only `pg_monitor` role.\n"
-            "2. Runs the two snapshot scripts in this workflow.\n"
+            "2. Runs the snapshot scripts in this workflow.\n"
             "3. Publishes the key figures (`pct_utilized`, database size deltas, "
             "`pct_forced_checkpoints`) as CloudWatch custom metrics.\n"
             "4. Relies on standard CloudWatch alarms on those custom metrics for paging -- this "

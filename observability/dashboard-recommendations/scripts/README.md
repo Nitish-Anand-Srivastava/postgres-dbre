@@ -6,7 +6,7 @@ in `observability/dashboard-recommendations/scripts/`.
 | Order | Script | Purpose | Safety | Expected Runtime |
 | ----- | ------ | ------- | ------ | ---------------- |
 | 01 | `01_single_row_dashboard_snapshot.sql` | Single-row cluster-at-a-glance snapshot for a quick-start dashboard panel. | READ ONLY | Low (sub-second to a few seconds) |
-| 02 | `02_baseline_dashboard_layout_recommendations.md` | Reference: recommended baseline dashboard panel layout, grouped by operational question. | READ ONLY (reference/planning documentation only; no SQL statements are executed by this file) | An implementation planning exercise; not a runtime-bound script. |
+| 02 | `02_baseline_dashboard_layout_recommendations.md` | Reference: recommended baseline dashboard panel layout, grouped by operational question. | INFORMATIONAL -- NO SQL EXECUTED, DASHBOARD/ALERTING DESIGN GUIDANCE ONLY | An implementation planning exercise; not a runtime-bound script. |
 
 ## Execution Order
 
