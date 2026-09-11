@@ -1,4 +1,4 @@
-"""Workflow definitions: observability/ category (6 issue directories)."""
+"""Workflow definitions: observability/ category (7 issue directories)."""
 from __future__ import annotations
 
 from typing import List
@@ -224,6 +224,162 @@ ORDER BY xact_commit + xact_rollback DESC;
         sb.wal_activity(),
         "On community PostgreSQL this is a direct, valuable rate metric (WAL bytes/sec correlates with both storage growth and replica apply lag). On Aurora PostgreSQL, this view cannot be queried at all -- the script detects this automatically and returns a guidance row pointing at the CloudWatch and Performance Insights equivalents instead of failing. Do not build a monitoring alert directly on this view without first confirming which code path it took in your environment.",
         table_purpose="Cluster-wide WAL generation counters, or an Aurora availability notice.",
+    ),
+]
+
+# ---------------------------------------------------------------------------
+# comprehensive-html-report
+# ---------------------------------------------------------------------------
+
+WORKFLOWS.append(_wf(
+    slug="comprehensive-html-report",
+    title="Comprehensive Aurora PostgreSQL HTML Observability Report",
+    summary=(
+        "A production-validated, self-contained psql report that captures a broad Aurora "
+        "PostgreSQL observability snapshot and writes structurally valid HTML for offline "
+        "review. It combines configuration, sessions, waits, query statistics, vacuum, "
+        "storage, replication, capacity, and extension readiness in one operator-friendly "
+        "artifact while dynamically handling optional or unavailable Aurora features."
+    ),
+    symptoms=[
+        "A DBA needs a broad point-in-time health and observability snapshot before narrowing into a symptom-specific workflow.",
+        "An incident handoff or review needs a portable HTML artifact that can be opened without database access.",
+        "A baseline, post-deployment, or periodic review needs configuration and runtime evidence captured together.",
+    ],
+    business_impact=[
+        "A single report shortens initial triage by collecting related evidence consistently instead of relying on improvised queries.",
+        "The portable HTML output supports incident handoffs and audit evidence without exposing database credentials or requiring recipients to connect to production.",
+        "Dynamic feature detection prevents optional Aurora extensions or unsupported WAL paths from turning a broad diagnostic run into a partial report.",
+    ],
+    root_causes=[
+        "Not a single-failure workflow: it identifies potential pressure across configuration, sessions, queries, vacuum, storage, replication, and observability coverage.",
+        "Findings are point-in-time indicators and must be compared with workload baselines and the focused workflows linked below before remediation.",
+    ],
+    investigation_strategy=[
+        "Confirm the target instance and connect using TLS with a least-privileged monitoring role.",
+        "Run the numbered report once with ON_ERROR_STOP enabled and explicit HTML output redirection as documented in scripts/README.md.",
+        "Open the generated HTML locally and start with the executive summary and prioritized findings.",
+        "Use the detailed sections to validate each finding, then continue in the relevant focused workflow before changing configuration or terminating sessions.",
+    ],
+    prerequisites=[
+        "A supported psql client on Linux, macOS, or Windows; the report depends on psql meta-commands and is not intended for a generic SQL-only client.",
+        "CONNECT on the target database plus pg_monitor, or equivalent SELECT privileges on the referenced system catalogs and statistics views.",
+        "TLS connection settings for the Aurora endpoint. sslmode=verify-full with the current Amazon RDS CA bundle is recommended; sslmode=require encrypts traffic but does not verify server identity.",
+        "No extension is mandatory. pg_stat_statements, pg_wait_sampling, apg_plan_mgmt, and version-specific catalog views are detected before use; auto_explain is correctly treated as a preload-only module.",
+    ],
+    interpretation_guide=[
+        "Start with the prioritized findings, but treat thresholds as prompts for investigation rather than automatic remediation decisions.",
+        "Session, wait, and instance statistics describe the specific Aurora instance reached by the connection; a reader report does not substitute for a writer report when investigating writer load.",
+        "Unavailable sections are explicitly reported when an extension or Aurora PostgreSQL path is unsupported; absence of that section's metrics is not evidence that the underlying workload is healthy.",
+        "Keep the generated HTML only in an approved local evidence location because it can contain database names, role names, query text, schema names, and operational metadata. Generated reports are intentionally excluded from this repository.",
+    ],
+    remediation_immediate=[
+        "Do not apply recommendations directly from the HTML report during an incident. Confirm the signal in the linked focused workflow and use its safety and escalation guidance.",
+    ],
+    remediation_short_term=[
+        "Compare findings with the cluster's normal baseline and open targeted follow-up work for confirmed configuration, vacuum, query, replication, or capacity issues.",
+        "Re-run after approved changes to capture before-and-after evidence using the same target instance and monitoring role.",
+    ],
+    remediation_long_term=[
+        "Schedule periodic runs only at a cadence appropriate for database size and retain reports under the organization's security and incident-evidence policy.",
+        "Use recurring findings to improve continuous dashboards and alerts rather than relying on a comprehensive snapshot as the primary monitoring system.",
+    ],
+    production_safety=[
+        "The report is LOW RISK WRITE, not READ ONLY: it creates and populates only one temporary table scoped to the psql session; it does not write application tables or persist database objects.",
+        "The report reads many system catalogs and statistics views. Runtime is typically seconds to several minutes but scales with object count, statement statistics, and database size; avoid repeatedly running it during peak load.",
+        "The report prints recommendations that may mention disruptive actions. Those strings are output only and are never executed by this script.",
+        "Use -v ON_ERROR_STOP=1 so a failed section stops the run instead of producing a success-looking partial artifact.",
+    ],
+    escalation_criteria=[
+        "Any critical finding that affects availability, transaction ID safety, replication, or connection headroom is confirmed by the corresponding focused workflow.",
+        "The report cannot complete with the documented role because required catalog visibility is restricted; involve the database platform owner rather than broadening privileges ad hoc.",
+        "Runtime or load is materially higher than the documented range; stop repeated runs and use narrower scripts while investigating the cause.",
+    ],
+    related_issues=[
+        "../postgres-metrics/README.md",
+        "../slow-query-observability/README.md",
+        "../wait-event-analysis/README.md",
+        "../../database-health/comprehensive-health-check/README.md",
+        "../../vacuum-and-autovacuum/autovacuum-not-keeping-up/README.md",
+        "../../replication-and-ha/replication-health/README.md",
+        "../../storage-and-capacity/capacity-forecasting/README.md",
+    ],
+    aurora_notes=[
+        "This imported report is the current main-branch version of [`platforms/aurora-postgresql/aws-rds/postgres_observability_report.sql`](https://github.com/Nitish-Anand-Srivastava/database-reliability-engineering/blob/main/platforms/aurora-postgresql/aws-rds/postgres_observability_report.sql), production-validated against Aurora PostgreSQL 17.7 after Nitish-Anand-Srivastava/database-reliability-engineering#16.",
+        "Aurora extensions are not assumed available. Extension and module checks distinguish installed extensions, unavailable extensions, and auto_explain's shared_preload_libraries-only activation model.",
+        "Unsupported Aurora WAL statistics paths are guarded so the report records availability guidance rather than aborting.",
+        "Settings with PostgreSQL unit suffixes are interpreted through catalog metadata rather than assuming every setting is a bare integer.",
+    ],
+    execution_guidance=r"""
+Run from the repository root. Both examples write
+`postgres_observability_report.html` in the current directory and stop at the
+first SQL or psql error. Credentials should come from a secure prompt,
+`.pgpass`/`pgpass.conf`, IAM authentication, or the organization's secret
+manager; never put a password in the command, report, or repository.
+
+**Linux/macOS (bash):**
+
+```bash
+PGHOST=db.example.internal \
+PGPORT=5432 \
+PGDATABASE=appdb \
+PGUSER=monitoring \
+PGSSLMODE=verify-full \
+PGSSLROOTCERT=/etc/ssl/certs/rds-ca-rsa2048-g1.pem \
+psql -X -v ON_ERROR_STOP=1 \
+  -f observability/comprehensive-html-report/scripts/01_postgres_observability_report.sql \
+  -o postgres_observability_report.html
+```
+
+**Windows (PowerShell):**
+
+```powershell
+$env:PGHOST = "db.example.internal"
+$env:PGPORT = "5432"
+$env:PGDATABASE = "appdb"
+$env:PGUSER = "monitoring"
+$env:PGSSLMODE = "verify-full"
+$env:PGSSLROOTCERT = "C:\certs\rds-ca-rsa2048-g1.pem"
+psql.exe -X -v ON_ERROR_STOP=1 `
+  -f "observability\comprehensive-html-report\scripts\01_postgres_observability_report.sql" `
+  -o "postgres_observability_report.html"
+```
+
+If the RDS CA bundle is not yet available, `sslmode=require` still encrypts
+the connection but does not verify the endpoint identity; install the CA
+bundle and use `verify-full` for production. The output may contain sensitive
+operational metadata and query text, so review and store it accordingly.
+""",
+    expected_output_guidance=(
+        "The command writes a self-contained `postgres_observability_report.html` "
+        "file. Open it locally in a modern browser and begin with the executive "
+        "summary and prioritized findings. The file can contain database names, "
+        "roles, schema metadata, and query text; handle it as production operational "
+        "evidence rather than a public artifact."
+    ),
+    severe_incident_guidance=(
+        "_This report is LOW RISK WRITE because it uses a session-scoped temporary "
+        "table, and its broad catalog/statistics scan can add avoidable load. During "
+        "a severe incident, prefer the narrow symptom-specific scripts first; run "
+        "the comprehensive report once only when the instance has sufficient "
+        "headroom._"
+    ),
+))
+wf = WORKFLOWS[-1]
+wf.scripts = [
+    sql_script(
+        "01", "01_postgres_observability_report",
+        "Generates a self-contained HTML snapshot spanning Aurora PostgreSQL configuration, workload, waits, queries, maintenance, storage, replication, capacity, and observability readiness.",
+        "",
+        "Open postgres_observability_report.html in a browser, begin with the executive summary and prioritized findings, and corroborate each recommendation in the corresponding detailed section and focused repository workflow before acting.",
+        safety="LOW RISK WRITE (session-scoped temporary table only)",
+        expected_impact="Low to moderate -- creates one session-local temporary table and scans system catalogs/statistics views; typically seconds to several minutes, scaling with database object count and statistics volume.",
+        required_privileges="CONNECT plus pg_monitor (or equivalent SELECT access to the referenced system views). No superuser is required.",
+        prerequisites="psql with TLS configured. Optional extensions are dynamically detected; none is required for the report to complete.",
+        execution_location=WRITER_PREFERRED,
+        expected_runtime="Typically seconds to several minutes; run once and avoid repeated execution during peak load.",
+        table_purpose="Complete Aurora PostgreSQL observability snapshot rendered as a local HTML file.",
+        generator_managed=False,
     ),
 ]
 
@@ -1174,4 +1330,3 @@ repository (or the CloudWatch metric) that backs it.
         table_purpose="Reference: recommended baseline dashboard panel layout, grouped by operational question.",
     ),
 ]
-

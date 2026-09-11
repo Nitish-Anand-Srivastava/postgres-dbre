@@ -35,6 +35,13 @@ def write_workflows(root: str, workflows: Iterable[Workflow]) -> List[str]:
 
         for s in wf.scripts:
             script_path = os.path.join(base, "scripts", s.filename)
+            if not s.generator_managed:
+                if not os.path.isfile(script_path):
+                    raise FileNotFoundError(
+                        f"generator-aware external script is missing: {script_path}"
+                    )
+                written.append(script_path)
+                continue
             if s.kind == "sql":
                 content = render_sql_file(wf, s)
             else:

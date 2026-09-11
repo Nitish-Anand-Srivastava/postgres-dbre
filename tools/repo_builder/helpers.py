@@ -48,6 +48,7 @@ def sql_script(
     execution_location: str = ANY_INSTANCE,
     expected_runtime: str = "Low (sub-second to a few seconds)",
     table_purpose: Optional[str] = None,
+    generator_managed: bool = True,
 ) -> Script:
     return Script(
         order=order,
@@ -65,6 +66,7 @@ def sql_script(
         aurora_version=AURORA_17,
         expected_runtime=expected_runtime,
         table_purpose=table_purpose,
+        generator_managed=generator_managed,
     )
 
 

@@ -269,6 +269,25 @@ def render_scripts_readme(wf: Workflow) -> str:
     do_not_run = _bullets(
         [s.filename + " -- " + s.expected_impact for s in wf.scripts if "resource intensive" in s.safety.lower() or s.kind == "md"]
     )
+    execution_guidance = ""
+    if wf.execution_guidance:
+        execution_guidance = f"\n\n## Platform-specific execution\n\n{wf.execution_guidance.strip()}\n"
+    investigation_steps = (
+        "numbered investigation steps"
+        if wf.execution_guidance
+        else "read-only investigation steps"
+    )
+    expected_output = wf.expected_output_guidance or (
+        "Every script returns a result set intended to be read directly in `psql` (or\n"
+        "any SQL client). Columns are named for direct interpretation; each script's\n"
+        "header contains a `HOW TO INTERPRET RESULTS` section, and the parent\n"
+        '`README.md` section 8 ("Interpretation Guide") gives workflow-level guidance.'
+    )
+    severe_incident_guidance = wf.severe_incident_guidance or (
+        "_All scripts in this workflow are lightweight, read-only, and safe to run "
+        "even during a severe incident. Prefer the narrower/most targeted script "
+        "first if the system is under extreme load._"
+    )
     return f"""# Scripts: {wf.title}
 
 Execution order, safety classification, and expected runtime for every script
@@ -283,7 +302,7 @@ in `{wf.category_slug}/{wf.slug}/scripts/`.
 Run scripts strictly in the numeric order shown above. Each script assumes the
 operator has reviewed the output of the prior step. Do not skip ahead to a
 remediation template (`.md` files, if present) without completing the
-read-only investigation steps first.
+{investigation_steps} first.{execution_guidance}
 
 ## Required Permissions
 
@@ -297,10 +316,7 @@ requirements explicitly in their own header.
 
 ## Expected Output
 
-Every script returns a result set intended to be read directly in `psql` (or
-any SQL client). Columns are named for direct interpretation; each script's
-header contains a `HOW TO INTERPRET RESULTS` section, and the parent
-`README.md` section 8 ("Interpretation Guide") gives workflow-level guidance.
+{expected_output}
 
 ## When to Stop and Escalate
 
@@ -308,5 +324,5 @@ header contains a `HOW TO INTERPRET RESULTS` section, and the parent
 
 ## Scripts That Should Not Be Run During Severe Incidents
 
-{do_not_run if do_not_run != '_None documented._' else '_All scripts in this workflow are lightweight, read-only, and safe to run even during a severe incident. Prefer the narrower/most targeted script first if the system is under extreme load._'}
+{do_not_run if do_not_run != '_None documented._' else severe_incident_guidance}
 """

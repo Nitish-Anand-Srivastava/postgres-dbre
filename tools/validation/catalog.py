@@ -168,6 +168,7 @@ EXPLICIT_CATALOG: dict[str, list[str]] = {
         "slow-query-observability",
         "wait-event-analysis",
         "dashboard-recommendations",
+        "comprehensive-html-report",
     ],
     "automation": [
         "health-checks",

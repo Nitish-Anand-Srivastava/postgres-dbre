@@ -30,6 +30,7 @@ class Script:
     aurora_version: str = "Aurora PostgreSQL 17+ (also compatible with community PostgreSQL 17+ unless noted)"
     expected_runtime: str = "Low (sub-second to a few seconds)"
     table_purpose: Optional[str] = None  # short purpose for the scripts/README.md table; falls back to purpose
+    generator_managed: bool = True  # False preserves an authoritative checked-in external artifact.
 
     @property
     def filename(self) -> str:
@@ -58,6 +59,9 @@ class Workflow:
     related_issues: List[str]   # relative markdown links, e.g. "../slow-queries/README.md"
     scripts: List[Script] = field(default_factory=list)
     aurora_notes: List[str] = field(default_factory=list)
+    execution_guidance: str = ""
+    expected_output_guidance: str = ""
+    severe_incident_guidance: str = ""
 
     @property
     def path(self) -> str:
