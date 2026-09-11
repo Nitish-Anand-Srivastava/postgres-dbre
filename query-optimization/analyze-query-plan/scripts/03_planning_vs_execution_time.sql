@@ -58,7 +58,7 @@ SELECT
     round(total_exec_time::numeric, 2)                            AS total_exec_time_ms,
     round(mean_exec_time::numeric, 4)                             AS mean_exec_time_ms,
     round(
-        100.0 * total_plan_time / NULLIF(total_plan_time + total_exec_time, 0), 2
+        (100.0 * total_plan_time / NULLIF(total_plan_time + total_exec_time, 0))::numeric, 2
     )                                                             AS pct_time_spent_planning,
     left(query, 200)                                              AS query_snippet
 FROM pg_stat_statements

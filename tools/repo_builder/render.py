@@ -198,6 +198,68 @@ Escalate beyond the on-call DBA when any of the following are true:
 """
 
 
+def render_category_readme(category_slug: str, category_title: str, workflows: List[Workflow]) -> str:
+    """Render a category-root index README linking to every workflow in the
+    category. Generated (not hand-authored) so it can never go stale as
+    workflows are added/removed -- re-running the generator always produces
+    an index that matches the current workflow set exactly, and every
+    ``../../<category>/README.md`` link used by workflow READMEs elsewhere
+    in the repository resolves to a real file.
+    """
+    rows = "\n".join(
+        f"| [`{w.slug}`]({w.slug}/README.md) | {w.summary} |" for w in workflows
+    )
+
+    def _label(rel: str) -> str:
+        parts = [p for p in rel.split("/") if p not in ("..", ".")]
+        label_parts = [p for p in parts if p != "README.md"]
+        return "/".join(label_parts) if label_parts else rel
+
+    # Collect cross-category links every workflow in this category points
+    # to (its own investigation naturally leads there), deduplicated, to
+    # give the category index a "related categories" section without
+    # requiring a separate hand-maintained list.
+    seen: set = set()
+    related: List[str] = []
+    for w in workflows:
+        for rel in w.related_issues:
+            if rel.startswith("../../") and rel not in seen:
+                seen.add(rel)
+                related.append(rel)
+
+    related_block = ""
+    if related:
+        related_lines = "\n".join(f"- [`{_label(r)}`]({r})" for r in sorted(related))
+        related_block = f"\n## Related Categories\n\n{related_lines}\n"
+
+    return f"""# {category_title}
+
+**Category:** `{category_slug}`
+
+This is the index for the `{category_slug}/` category: every workflow
+(issue directory) below addresses a distinct, real operational problem or
+DBA use case for this Aurora PostgreSQL toolkit, per the repository's
+one-parent-directory-per-problem design. Each workflow directory is
+self-contained -- its own `README.md` (problem description, symptoms,
+business impact, root causes, investigation strategy, prerequisites,
+interpretation guide, remediation options, production safety, and
+escalation criteria) and a `scripts/` directory of numbered, read-only-by
+-default investigation scripts (see each workflow's `scripts/README.md`
+for the full script-by-script execution table).
+
+## Workflows
+
+| Workflow | Summary |
+| --- | --- |
+{rows}
+{related_block}
+Start with the workflow whose title most closely matches the symptom you are
+investigating; if uncertain, `database-health/comprehensive-health-check`
+and `incident-response/production-triage` both provide a broad first pass
+that surfaces which specific workflow to open next.
+"""
+
+
 def render_scripts_readme(wf: Workflow) -> str:
     rows = "\n".join(
         f"| {s.order} | `{s.filename}` | {s.table_purpose or s.purpose} | {s.safety} | {s.expected_runtime} |"

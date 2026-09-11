@@ -61,7 +61,7 @@ SELECT
         SELECT 1 FROM pg_constraint con WHERE con.conindid = ix.indexrelid
     )                                                            AS backs_constraint,
     (
-        SELECT string_agg(con.conname || ' (' || con.contype || ')', ', ')
+        SELECT string_agg(con.conname || ' (' || con.contype::text || ')', ', ')
         FROM pg_constraint con
         WHERE con.conindid = ix.indexrelid
     )                                                            AS backing_constraints,

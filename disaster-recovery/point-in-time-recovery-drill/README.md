@@ -34,7 +34,7 @@ Plans and practices restoring the cluster to a specific point in time within Aur
 Run the scripts in `scripts/` in numeric order. See `scripts/README.md` for the
 full execution table (safety, expected runtime, when to stop).
 
-1. [`scripts/01_target_restore_time_reference.sql`](scripts/01_target_restore_time_reference.sql) -- Given an operator-supplied suspected incident-start timestamp, computes a suggested restore-to target slightly earlier, alongside the current server time and WAL position for reference.
+1. [`scripts/01_target_restore_time_reference.sql`](scripts/01_target_restore_time_reference.sql) -- Given an operator-supplied suspected incident-start timestamp, computes a suggested restore-to target slightly earlier, alongside a safe engine-specific recovery reference.
 2. [`scripts/02_point_in_time_recovery_runbook.md`](scripts/02_point_in_time_recovery_runbook.md) -- Guarded runbook for restoring the cluster to a specific point in time into a new cluster, using the target time identified by script 01.
 
 ## Aurora PostgreSQL Notes

@@ -57,7 +57,7 @@ SELECT
     now() - stats_reset                                           AS counting_window,
     round(
         (xact_commit + xact_rollback)::numeric /
-        NULLIF(EXTRACT(epoch FROM (now() - stats_reset)), 0),
+        NULLIF(EXTRACT(epoch FROM (now() - stats_reset))::numeric, 0),
         2
     )                                                             AS avg_txn_per_second
 FROM pg_stat_database

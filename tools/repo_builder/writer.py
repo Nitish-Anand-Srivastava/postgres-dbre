@@ -5,7 +5,13 @@ import os
 from typing import Iterable, List
 
 from .model import Workflow
-from .render import render_md_runbook, render_scripts_readme, render_sql_file, render_workflow_readme
+from .render import (
+    render_category_readme,
+    render_md_runbook,
+    render_scripts_readme,
+    render_sql_file,
+    render_workflow_readme,
+)
 
 
 def write_text(path: str, content: str) -> None:
@@ -16,6 +22,7 @@ def write_text(path: str, content: str) -> None:
 
 def write_workflows(root: str, workflows: Iterable[Workflow]) -> List[str]:
     written: List[str] = []
+    workflows = list(workflows)
     for wf in workflows:
         base = os.path.join(root, wf.category_slug, wf.slug)
         readme_path = os.path.join(base, "README.md")
@@ -34,4 +41,16 @@ def write_workflows(root: str, workflows: Iterable[Workflow]) -> List[str]:
                 content = render_md_runbook(wf, s)
             write_text(script_path, content)
             written.append(script_path)
+
+    # One category-root index README per category, generated (never
+    # hand-authored) so it can never go stale relative to the actual
+    # workflow set and so every "../../<category>/README.md" cross-link
+    # used by workflow READMEs elsewhere in the repository resolves.
+    if workflows:
+        category_slug = workflows[0].category_slug
+        category_title = workflows[0].category_title
+        category_readme_path = os.path.join(root, category_slug, "README.md")
+        write_text(category_readme_path, render_category_readme(category_slug, category_title, workflows))
+        written.append(category_readme_path)
+
     return written

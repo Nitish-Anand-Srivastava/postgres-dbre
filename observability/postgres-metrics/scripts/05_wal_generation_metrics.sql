@@ -50,14 +50,28 @@ On community PostgreSQL this is a direct, valuable rate metric (WAL bytes/sec co
 -- (WAL/redo generation happens against Aurora's distributed storage layer,
 -- not local disk, so the community WAL-writer statistics this view
 -- describes do not map onto Aurora's architecture). Detect Aurora *before*
--- ever referencing pg_stat_wal, using a safe, catalog-only check (the
--- presence of the Aurora-specific aurora_version() function) so the
--- unsupported view/function is never resolved on the Aurora execution
--- path -- this is a plain catalog lookup on pg_proc, not a call to
--- aurora_version() itself, so it never fails on non-Aurora PostgreSQL
--- either.
-SELECT EXISTS (
-    SELECT 1 FROM pg_proc WHERE proname = 'aurora_version'
+-- ever sending a statement that references pg_stat_wal, so the
+-- unsupported view/function is never parsed/resolved on the Aurora
+-- execution path at all.
+--
+-- The detection below is a plain data-level check, never a call to an
+-- Aurora-only function itself (so nothing here can fail on non-Aurora
+-- PostgreSQL either): current_setting(name, missing_ok) is a stable core
+-- PostgreSQL function that returns NULL instead of raising when the named
+-- GUC does not exist, so it is safe to probe Aurora-only parameters with
+-- it on any engine. Three independent Aurora signals are OR'd together so
+-- a single naming/version quirk in one signal cannot cause a false
+-- negative that would fall through to the unsupported pg_stat_wal branch:
+--   1. the `aurora_version` GUC, which only exists on Aurora PostgreSQL
+--      (visible via `SHOW aurora_version;` on a real Aurora instance);
+--   2. the `rds.extensions` GUC, present on every RDS/Aurora PostgreSQL
+--      instance (never on self-managed/community PostgreSQL);
+--   3. the presence of the Aurora-specific aurora_version() SQL function
+--      in pg_proc (checked by name only -- a catalog lookup, not a call).
+SELECT (
+    current_setting('aurora_version', true) IS NOT NULL
+    OR current_setting('rds.extensions', true) IS NOT NULL
+    OR EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'aurora_version')
 )                                                                AS is_aurora
 \gset
 

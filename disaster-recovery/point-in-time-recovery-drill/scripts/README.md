@@ -5,7 +5,7 @@ in `disaster-recovery/point-in-time-recovery-drill/scripts/`.
 
 | Order | Script | Purpose | Safety | Expected Runtime |
 | ----- | ------ | ------- | ------ | ---------------- |
-| 01 | `01_target_restore_time_reference.sql` | Given an operator-supplied suspected incident-start timestamp, computes a suggested restore-to target slightly earlier, alongside the current server time and WAL position for reference. | READ ONLY | Low (sub-second to a few seconds) |
+| 01 | `01_target_restore_time_reference.sql` | Given an operator-supplied suspected incident-start timestamp, computes a suggested restore-to target slightly earlier, alongside a safe engine-specific recovery reference. | READ ONLY | Low (sub-second to a few seconds) |
 | 02 | `02_point_in_time_recovery_runbook.md` | Guarded runbook for restoring the cluster to a specific point in time into a new cluster, using the target time identified by script 01. | LOW RISK WRITE (creates a new, separate cluster; does not modify the existing cluster in place) | Tens of minutes for the restore and instance provisioning, depending on data volume; validation and correction time varies with incident scope. |
 
 ## Execution Order

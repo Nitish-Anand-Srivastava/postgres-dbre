@@ -45,6 +45,17 @@ SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements') 
 -- a direct indicator of work_mem being too small for a sort/hash/group-by,
 -- or of a query reading far more data (a poor index choice, a missing
 -- predicate) than a well-planned query should need.
+--
+-- IMPORTANT (verified against Aurora PostgreSQL 17.7): pg_stat_statements
+-- 1.11, bundled with PostgreSQL/Aurora PostgreSQL 17, split the older
+-- generic blk_read_time/blk_write_time columns into separate
+-- shared/local/temp variants -- shared_blk_read_time, shared_blk_write_time,
+-- local_blk_read_time, local_blk_write_time, temp_blk_read_time,
+-- temp_blk_write_time. The bare blk_read_time/blk_write_time column names
+-- no longer exist at all on 17, so referencing them raises "column does
+-- not exist" rather than returning zero. This script reads
+-- shared_blk_read_time (the direct 1.11 successor covering ordinary shared
+-- buffer reads, which is what this script is measuring) instead.
 \set top_n 20
 SELECT
     queryid,
@@ -52,7 +63,7 @@ SELECT
     temp_blks_written,
     temp_blks_read,
     shared_blks_read,
-    round(blk_read_time::numeric, 2)                              AS blk_read_time_ms,
+    round(shared_blk_read_time::numeric, 2)                       AS shared_blk_read_time_ms,
     round(mean_exec_time::numeric, 2)                             AS mean_exec_time_ms,
     left(query, 200)                                              AS query_snippet
 FROM pg_stat_statements

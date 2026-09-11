@@ -56,7 +56,7 @@ full execution table (safety, expected runtime, when to stop).
 
 1. [`scripts/01_cluster_wal_activity.sql`](scripts/01_cluster_wal_activity.sql) -- Reports cluster-wide WAL generation counters, detecting up front whether this engine exposes them at all.
 2. [`scripts/02_checkpoint_activity.sql`](scripts/02_checkpoint_activity.sql) -- Reports checkpoint frequency and the forced-versus-timed split, the most common tunable cause of WAL amplification.
-3. [`scripts/03_wal_settings_and_position.sql`](scripts/03_wal_settings_and_position.sql) -- Captures WAL-related configuration and the instance's current WAL position so a real generation rate can be derived from two samples.
+3. [`scripts/03_wal_settings_and_position.sql`](scripts/03_wal_settings_and_position.sql) -- Captures WAL-related configuration and an engine-safe write-volume reference; community PostgreSQL also reports the current WAL position for rate sampling.
 4. [`scripts/04_wal_heavy_statements.sql`](scripts/04_wal_heavy_statements.sql) -- Attributes WAL generation to individual statements using pg_stat_statements, with the Aurora reporting caveat applied.
 5. [`scripts/05_write_volume_by_table.sql`](scripts/05_write_volume_by_table.sql) -- Attributes write volume to individual tables, which is the reliable WAL proxy on Aurora where the WAL statistics view is unavailable.
 6. [`scripts/06_replication_slot_wal_retention.sql`](scripts/06_replication_slot_wal_retention.sql) -- Identifies replication slots retaining WAL, which converts a transient write burst into persistent storage consumption.

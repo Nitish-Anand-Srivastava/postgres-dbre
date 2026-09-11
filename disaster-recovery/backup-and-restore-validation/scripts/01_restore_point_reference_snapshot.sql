@@ -40,9 +40,24 @@ Save this output alongside the test-restore's own start time. After the restore 
 -- authoritative recovery-point mechanism for Aurora backups (the backup
 -- window and retention period) is tracked entirely by the AWS control
 -- plane, not by anything queryable here.
+--
+-- IMPORTANT (verified against Aurora PostgreSQL 17.7): pg_current_wal_lsn()
+-- errors on Aurora clusters running with wal_level=replica (Aurora's
+-- default) -- this function family depends on the same logical-WAL-cache
+-- infrastructure used by logical replication, and is only reliably
+-- callable once wal_level=logical is set. current_setting('wal_level') is
+-- a plain GUC read that never fails, so it guards the call here: a CASE
+-- expression only evaluates its matching branch (the same documented
+-- mechanism used to avoid division-by-zero in a CASE), so
+-- pg_current_wal_lsn() is never actually invoked unless wal_level is
+-- already 'logical'.
 SELECT
     current_database()                                          AS database_name,
-    pg_current_wal_lsn()                                        AS current_wal_lsn,
+    CASE WHEN current_setting('wal_level') = 'logical'
+         THEN pg_current_wal_lsn()::text
+         ELSE 'NOT AVAILABLE (wal_level=' || current_setting('wal_level') ||
+              ', requires logical on Aurora)'
+    END                                                          AS current_wal_lsn,
     clock_timestamp()                                           AS reference_timestamp,
     d.xact_commit,
     d.xact_rollback,

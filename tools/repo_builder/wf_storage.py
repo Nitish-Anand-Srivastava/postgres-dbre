@@ -701,7 +701,7 @@ wf.scripts = [
     ),
     sql_script(
         "03", "03_wal_settings_and_position",
-        "Captures WAL-related configuration and the instance's current WAL position so a real generation rate can be derived from two samples.",
+        "Captures WAL-related configuration and an engine-safe write-volume reference; community PostgreSQL also reports the current WAL position for rate sampling.",
         """
 -- Part 1: the WAL and checkpoint settings that determine how much WAL this
 -- workload produces and how often the full-page-write cycle restarts. On
@@ -725,10 +725,28 @@ WHERE name IN (
 )
 ORDER BY name;
 
--- Part 2: current WAL position. pg_current_wal_lsn() raises
--- "recovery is in progress" if called on an instance in recovery -- which
--- every Aurora reader permanently is -- so detect the instance role first
--- and take a reader-safe branch rather than failing.
+-- Part 2: current WAL position. Aurora PostgreSQL 17.7 rejects the upstream
+-- WAL/LSN functions even for read-only inspection. Detect Aurora before
+-- psql sends any statement containing those functions; use AWS-native
+-- telemetry on Aurora and retain upstream LSN diagnostics only for
+-- community PostgreSQL.
+SELECT (
+    current_setting('aurora_version', true) IS NOT NULL
+    OR current_setting('rds.extensions', true) IS NOT NULL
+    OR EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'aurora_version')
+)                                                                AS is_aurora
+\\gset
+
+\\if :is_aurora
+SELECT
+    CASE WHEN pg_is_in_recovery() THEN 'reader' ELSE 'writer' END AS instance_role,
+    clock_timestamp()                                             AS captured_at,
+    current_setting('wal_level')                                  AS wal_level,
+    'Aurora PostgreSQL does not expose the upstream WAL/LSN inspection '
+    'functions safely. Use CloudWatch WriteThroughput, VolumeWriteIOPs and '
+    'VolumeBytesUsed for write volume, Performance Insights for Log waits, '
+    'and AuroraReplicaLag for reader apply delay.'                 AS guidance;
+\\else
 SELECT pg_is_in_recovery() AS in_recovery
 \\gset
 
@@ -738,13 +756,7 @@ SELECT
     pg_last_wal_receive_lsn()                                     AS last_wal_receive_lsn,
     pg_last_wal_replay_lsn()                                      AS last_wal_replay_lsn,
     pg_last_xact_replay_timestamp()                               AS last_replayed_xact_time,
-    now() - pg_last_xact_replay_timestamp()                       AS replay_delay,
-    'The cluster-wide WAL insert position is only available on the writer. '
-    'Re-run this script against the cluster writer endpoint to measure WAL '
-    'generation rate. On Aurora, readers replay redo from the shared storage '
-    'volume rather than a streaming WAL connection, so these replay positions '
-    'may be less meaningful than the CloudWatch AuroraReplicaLag metric.'
-                                                                  AS notice;
+    now() - pg_last_xact_replay_timestamp()                       AS replay_delay;
 \\else
 SELECT
     'writer (not in recovery)'::text                              AS instance_role,
@@ -759,8 +771,9 @@ SELECT
     'a genuine WAL bytes-per-second rate. A single sample is only a position, '
     'not a rate.'                                                 AS how_to_get_a_rate;
 \\endif
+\\endif
 """.strip("\n"),
-        "Read the settings first: a small max_wal_size relative to your write rate is what produces the forced checkpoints seen in script 02. Then use the position output as a rate measurement, not a level -- run this script twice several minutes apart and subtract. On a reader the script takes the recovery-safe branch automatically and tells you to re-run on the writer; that is expected behavior, not an error. On Aurora, treat the position delta as a useful in-database cross-check and CloudWatch WriteThroughput as the authoritative figure.",
+        "Read the settings first: a small max_wal_size relative to your write rate is what produces the forced checkpoints seen in script 02. On Aurora, the script intentionally returns no WAL/LSN value; use CloudWatch WriteThroughput, VolumeWriteIOPs and VolumeBytesUsed as the authoritative rate and volume sources. On community PostgreSQL, run the LSN branch twice several minutes apart and subtract the positions to derive a rate.",
         related_scripts="04_wal_heavy_statements.sql",
         execution_location=ANY_INSTANCE,
         table_purpose="WAL configuration plus current WAL position.",
