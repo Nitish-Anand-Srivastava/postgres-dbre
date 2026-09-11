@@ -43,18 +43,40 @@ Any slot with exceeds_warning_threshold = true is consuming cluster storage righ
 -- recovered.
 --
 -- IMPORTANT (verified against Aurora PostgreSQL 17.7): pg_current_wal_lsn()
--- errors on Aurora clusters running with wal_level=replica (Aurora's
--- default) -- Aurora's current-WAL-position tracking for this family of
--- functions depends on the same logical-WAL-cache infrastructure used by
--- logical replication, and is only reliably callable once
--- wal_level=logical is set. current_setting('wal_level') is a plain GUC
--- read that never fails, so it is used here as a guard: a CASE expression
--- only evaluates the branch matching its WHEN condition (the same
--- documented mechanism used to avoid division-by-zero in a CASE), so
--- pg_current_wal_lsn() is never actually invoked unless wal_level is
--- already 'logical'. The current position is computed once in a CTE and
--- reused, so the guard only needs to be evaluated a single time per query.
+-- is not available on Aurora -- detect Aurora first via a safe,
+-- catalog/GUC-only check (never a call to an Aurora-only function itself,
+-- so this never fails on non-Aurora PostgreSQL either) and never send a
+-- statement referencing pg_current_wal_lsn() on the Aurora execution path
+-- at all. On Aurora, per-slot retained WAL still cannot be sized from
+-- SQL; report retention via wal_status instead (a slot already reports
+-- 'lost'/'extended'/'unreserved' there) and point at CloudWatch/
+-- aurora_replica_status() for volume-level WAL retention pressure.
 \set retained_wal_warning_gb 50
+SELECT (
+    current_setting('aurora_version', true) IS NOT NULL
+    OR current_setting('rds.extensions', true) IS NOT NULL
+    OR EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'aurora_version')
+)                                                                AS is_aurora
+\gset
+
+\if :is_aurora
+SELECT
+    slot_name,
+    slot_type,
+    active,
+    wal_status,
+    'NOT AVAILABLE on Aurora (see wal_status and the guidance column)'::text
+                                                                  AS retained_wal,
+    NULL::boolean                                                AS exceeds_warning_threshold,
+    'pg_current_wal_lsn() is not available on Aurora PostgreSQL, so retained '
+    'WAL cannot be sized in bytes from SQL here. A wal_status of ''lost'' or '
+    '''extended'' already signals a slot that has fallen dangerously behind; '
+    'use CloudWatch (VolumeBytesUsed trend, ReplicaLag) or '
+    'aurora_replica_status() for cluster-wide storage-layer WAL retention '
+    'pressure instead.'                                          AS guidance
+FROM pg_replication_slots
+ORDER BY slot_name;
+\else
 -- NOTE: the threshold is cast to numeric BEFORE multiplying by 1024^3.
 -- pg_wal_lsn_diff() returns numeric, but the psql-substituted literal
 -- ":retained_wal_warning_gb" is a bare integer constant; PostgreSQL infers
@@ -63,26 +85,15 @@ Any slot with exceeds_warning_threshold = true is consuming cluster storage righ
 -- product (~53.7 billion) overflows int4 (max ~2.1 billion), raising
 -- "integer out of range" -- casting the threshold to numeric first forces
 -- numeric arithmetic throughout and avoids the overflow entirely.
-WITH current_position AS (
-    SELECT CASE WHEN current_setting('wal_level') = 'logical'
-                THEN pg_current_wal_lsn()
-                ELSE NULL
-           END AS lsn
-)
 SELECT
-    s.slot_name,
-    s.slot_type,
-    s.active,
-    s.wal_status,
-    CASE WHEN c.lsn IS NOT NULL
-         THEN pg_size_pretty(pg_wal_lsn_diff(c.lsn, s.restart_lsn))
-         ELSE 'NOT AVAILABLE (wal_level=' || current_setting('wal_level') || ', requires logical on Aurora)'
-    END                                                             AS retained_wal,
-    CASE WHEN c.lsn IS NOT NULL
-         THEN pg_wal_lsn_diff(c.lsn, s.restart_lsn) >
-              (:retained_wal_warning_gb::numeric * 1024 * 1024 * 1024)
-         ELSE NULL
-    END                                                             AS exceeds_warning_threshold
-FROM pg_replication_slots s
-CROSS JOIN current_position c
-ORDER BY (CASE WHEN c.lsn IS NOT NULL THEN pg_wal_lsn_diff(c.lsn, s.restart_lsn) ELSE NULL END) DESC NULLS LAST;
+    slot_name,
+    slot_type,
+    active,
+    wal_status,
+    pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) AS retained_wal,
+    pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn) >
+        (:retained_wal_warning_gb::numeric * 1024 * 1024 * 1024)    AS exceeds_warning_threshold,
+    NULL::text                                                      AS guidance
+FROM pg_replication_slots
+ORDER BY pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn) DESC;
+\endif

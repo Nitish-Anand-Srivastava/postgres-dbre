@@ -41,6 +41,37 @@ An inactive slot (active = false) with a very old xmin is a common, easily misse
 -- can contribute to storage growth and volume I/O -- this is one of the
 -- most common causes of unexplained storage growth on Aurora clusters that
 -- use logical replication or CDC (e.g. Debezium, DMS).
+--
+-- IMPORTANT (verified against Aurora PostgreSQL 17.7): pg_current_wal_lsn()
+-- is not available on Aurora -- detect Aurora first via a safe,
+-- catalog/GUC-only check (never a call to an Aurora-only function itself,
+-- so this never fails on non-Aurora PostgreSQL either) and never send a
+-- statement referencing pg_current_wal_lsn() on the Aurora execution path.
+-- wal_status alone (already reported either way) is enough to flag a slot
+-- that has fallen dangerously behind ('lost'/'extended'); use CloudWatch or
+-- aurora_replica_status() for byte-level WAL retention on Aurora.
+SELECT (
+    current_setting('aurora_version', true) IS NOT NULL
+    OR current_setting('rds.extensions', true) IS NOT NULL
+    OR EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'aurora_version')
+)                                                                AS is_aurora
+\gset
+
+\if :is_aurora
+SELECT
+    slot_name,
+    slot_type,
+    plugin,
+    database,
+    active,
+    active_pid,
+    wal_status,
+    restart_lsn,
+    confirmed_flush_lsn,
+    NULL::numeric                                                 AS retained_wal_bytes
+FROM pg_replication_slots
+ORDER BY slot_name;
+\else
 SELECT
     slot_name,
     slot_type,
@@ -54,3 +85,4 @@ SELECT
     pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)            AS retained_wal_bytes
 FROM pg_replication_slots
 ORDER BY retained_wal_bytes DESC NULLS LAST;
+\endif
