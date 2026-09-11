@@ -264,7 +264,8 @@ Incident
    ├── Observability                        observability/
    │      ├── postgres-metrics                performance-insights
    │      ├── cloudwatch                      slow-query-observability
-   │      └── wait-event-analysis             dashboard-recommendations
+   │      ├── wait-event-analysis             dashboard-recommendations
+   │      └── comprehensive-html-report
    │
    ├── Maintenance                          maintenance/
    ├── Disaster Recovery                    disaster-recovery/

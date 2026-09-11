@@ -18,6 +18,7 @@ for the full script-by-script execution table).
 | Workflow | Summary |
 | --- | --- |
 | [`postgres-metrics`](postgres-metrics/README.md) | The core set of native PostgreSQL statistics views and catalogs that a continuously-running monitoring pipeline (a scheduled collector, an exporter feeding Prometheus/Grafana, or a periodic health-check job) should read from, and why each one matters for an exchange-scale Aurora PostgreSQL 17+ deployment. This workflow is the SQL-level foundation everything else in this category builds on: performance-insights and cloudwatch add AWS-managed context on top of these same underlying signals, and dashboard-recommendations proposes how to lay them out for a team to watch continuously. |
+| [`comprehensive-html-report`](comprehensive-html-report/README.md) | A production-validated, self-contained psql report that captures a broad Aurora PostgreSQL observability snapshot and writes structurally valid HTML for offline review. It combines configuration, sessions, waits, query statistics, vacuum, storage, replication, capacity, and extension readiness in one operator-friendly artifact while dynamically handling optional or unavailable Aurora features. |
 | [`performance-insights`](performance-insights/README.md) | AWS Performance Insights (PI) samples pg_stat_activity roughly once per second and aggregates it into Average Active Sessions (AAS) broken down by wait event, SQL statement, user, and host -- the same underlying source data this repository's SQL-level scripts read on demand, but continuously recorded, retained, and rendered as a stacked timeline. This workflow explains how to read PI's DB load view correctly, when to reach for it before a SQL session, and how to cross-reference its findings back against the live catalog queries in this repository to confirm and drill into what it shows. |
 | [`cloudwatch`](cloudwatch/README.md) | The Aurora-published CloudWatch metrics an on-call DBA and platform team should already have alarms on, and -- for each one -- the SQL-level query in this repository that explains *why* the metric moved. CloudWatch metrics come from the instance/hypervisor and Aurora storage layer, not from inside PostgreSQL, so they answer 'something changed' reliably but rarely 'what changed inside the database'; this workflow is the bridge between the two. |
 | [`slow-query-observability`](slow-query-observability/README.md) | How to build standing, always-on visibility into slow and expensive queries -- centered on pg_stat_statements as the primary continuous instrumentation, plus guidance on configuring statement-level logging (log_min_duration_statement, auto_explain) through Aurora's DB parameter group model. This is durable observability infrastructure, not a one-off diagnostic pass: the goal is that the next slow-query incident starts with existing data to query, not with turning on instrumentation after the fact. |
@@ -37,9 +38,12 @@ for the full script-by-script execution table).
 - [`performance/slow-queries`](../../performance/slow-queries/README.md)
 - [`query-optimization/analyze-query-plan`](../../query-optimization/analyze-query-plan/README.md)
 - [`query-optimization/query-plan-regression`](../../query-optimization/query-plan-regression/README.md)
+- [`replication-and-ha/replication-health`](../../replication-and-ha/replication-health/README.md)
 - [`replication-and-ha/replication-lag`](../../replication-and-ha/replication-lag/README.md)
+- [`storage-and-capacity/capacity-forecasting`](../../storage-and-capacity/capacity-forecasting/README.md)
 - [`storage-and-capacity/database-growth`](../../storage-and-capacity/database-growth/README.md)
 - [`tables-and-indexes/sequential-scan-investigation`](../../tables-and-indexes/sequential-scan-investigation/README.md)
+- [`vacuum-and-autovacuum/autovacuum-not-keeping-up`](../../vacuum-and-autovacuum/autovacuum-not-keeping-up/README.md)
 - [`vacuum-and-autovacuum/dead-tuples`](../../vacuum-and-autovacuum/dead-tuples/README.md)
 
 Start with the workflow whose title most closely matches the symptom you are
