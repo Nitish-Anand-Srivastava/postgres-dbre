@@ -1,0 +1,45 @@
+# Aurora PostgreSQL DBA Toolkit - .gitignore
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Validation output (generated reports, not source of truth) ---
+tools/validation/.reports/
+*.validation-report.json
+*.validation-report.txt
+
+# --- Editors / IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS artifacts ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Logs / scratch ---
+*.log
+*.tmp

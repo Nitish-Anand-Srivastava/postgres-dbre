@@ -1,0 +1,54 @@
+/*
+===============================================================================
+SCRIPT NAME:
+05_invalid_indexes.sql
+
+PURPOSE:
+Detects indexes left in an INVALID state by a failed or interrupted concurrent build.
+
+AURORA POSTGRESQL VERSION:
+Aurora PostgreSQL 17+ (compatible with community PostgreSQL 17+ unless a note says otherwise)
+
+EXECUTION LOCATION:
+Any instance (writer or reader)
+
+SAFETY:
+READ ONLY
+
+EXPECTED IMPACT:
+Minimal -- reads system catalogs/statistics views only, no table locks beyond a brief catalog lookup.
+
+REQUIRED PRIVILEGES:
+Role membership in `pg_monitor` (or `pg_read_all_stats`) is sufficient. No superuser required.
+
+PREREQUISITES:
+None beyond CONNECT on the target database.
+
+EXECUTION ORDER:
+Step 05 of workflow 'database-health/post-deployment-check'
+
+RELATED SCRIPTS:
+06_statistics_freshness.sql, ../../tables-and-indexes/invalid-indexes/README.md
+
+HOW TO INTERPRET RESULTS:
+Any row here means the planner is ignoring that index while it still costs write overhead and storage on every insert and update. On an exchange hot table this is an active incident, not a cleanup task: the queries that depended on it are running without it right now. An invalid index must be dropped and rebuilt concurrently -- it cannot be validated in place.
+===============================================================================
+*/
+
+-- Indexes left in an INVALID state, almost always because a previous
+-- CREATE INDEX CONCURRENTLY or REINDEX CONCURRENTLY failed partway through
+-- (a killed session, statement_timeout, or deadlock). Invalid indexes are
+-- not used by the planner but still consume storage and slow down writes,
+-- so they should be dropped and, if needed, recreated concurrently.
+SELECT
+    n.nspname                                                   AS schema_name,
+    c.relname                                                   AS table_name,
+    i.relname                                                   AS index_name,
+    pg_size_pretty(pg_relation_size(i.oid))                      AS wasted_size,
+    pg_get_indexdef(ix.indexrelid)                               AS index_definition
+FROM pg_index ix
+JOIN pg_class c ON c.oid = ix.indrelid
+JOIN pg_class i ON i.oid = ix.indexrelid
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE NOT ix.indisvalid
+ORDER BY pg_relation_size(i.oid) DESC;

@@ -1,0 +1,65 @@
+/*
+===============================================================================
+SCRIPT NAME:
+01_storage_and_connection_snapshot.sql
+
+PURPOSE:
+Storage-size and connection-utilization snapshot, intended to be captured on every scheduled run and compared against documented thresholds.
+
+AURORA POSTGRESQL VERSION:
+Aurora PostgreSQL 17+ (compatible with community PostgreSQL 17+ unless a note says otherwise)
+
+EXECUTION LOCATION:
+Any instance (writer or reader)
+
+SAFETY:
+READ ONLY
+
+EXPECTED IMPACT:
+Minimal -- reads system catalogs/statistics views only, no table locks beyond a brief catalog lookup.
+
+REQUIRED PRIVILEGES:
+Role membership in `pg_monitor` (or `pg_read_all_stats`) is sufficient. No superuser required.
+
+PREREQUISITES:
+None beyond CONNECT on the target database.
+
+EXECUTION ORDER:
+Step 01 of workflow 'automation/capacity-monitoring'
+
+RELATED SCRIPTS:
+02_io_and_checkpoint_snapshot.sql
+
+HOW TO INTERPRET RESULTS:
+pct_utilized against max_connections is the figure to alert on for connection capacity; database size, compared against the previous scheduled run, is the figure to alert on for a storage growth-rate threshold. Neither figure alone is a full capacity picture -- combine with script 02's I/O signal before deciding a threshold breach is genuinely a capacity concern rather than a transient spike.
+===============================================================================
+*/
+
+-- Size of every database in the cluster. On Aurora, this reflects logical
+-- object size as PostgreSQL reports it; actual billed storage is tracked
+-- separately by the Aurora storage layer (see AWS Console/CloudWatch
+-- VolumeBytesUsed, not a SQL-visible value) because Aurora storage grows in
+-- 10GiB increments and is shared/compressed across the cluster's
+-- replicas.
+SELECT
+    datname,
+    pg_size_pretty(pg_database_size(datname))                     AS database_size,
+    pg_database_size(datname)                                     AS database_size_bytes
+FROM pg_database
+WHERE datallowconn
+ORDER BY pg_database_size(datname) DESC;
+
+-- Current connection utilization vs. the effective connection ceiling.
+-- On Aurora, max_connections is derived from the instance class's memory
+-- (via the parameter group formula) rather than freely set, so headroom
+-- must be planned around instance class, not just the GUC value alone.
+SELECT
+    (SELECT setting::int FROM pg_settings WHERE name = 'max_connections')      AS max_connections,
+    (SELECT setting::int FROM pg_settings WHERE name = 'superuser_reserved_connections') AS superuser_reserved,
+    (SELECT count(*) FROM pg_stat_activity)                                    AS current_total_connections,
+    (SELECT count(*) FROM pg_stat_activity WHERE state = 'active')             AS current_active_connections,
+    round(
+        100.0 * (SELECT count(*) FROM pg_stat_activity) /
+        NULLIF((SELECT setting::numeric FROM pg_settings WHERE name = 'max_connections'), 0),
+        2
+    )                                                                          AS pct_utilized;
