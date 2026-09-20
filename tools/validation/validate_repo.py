@@ -8,10 +8,8 @@ Usage:
                                               [--only-errors] [--quiet]
 
 Exit code is non-zero if any ERROR-level issue is found. WARNING-level
-issues (catalog completeness gaps, unresolved markdown links, stray
-filenames) are reported but do not affect the exit code, since large parts
-of the operational category tree may be a work in progress at validation
-time.
+issues (unresolved markdown links and stray filenames) are reported but do
+not affect the exit code.
 """
 from __future__ import annotations
 

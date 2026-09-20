@@ -43,6 +43,7 @@ python tools/validation/validate_repo.py --quiet
 | `sequential-filenames` | Every `scripts/` directory's numbered files (`NN_description.sql`/`.md`) are sequential starting at `01` with no gaps or duplicates | ERROR (numbering) / WARNING (unrecognized filenames) |
 | `catalog-completeness` | Compares the on-disk category/workflow tree against the authoritative catalog (`tools/validation/catalog.py`) | ERROR |
 | `markdown-links` | Best-effort check that relative Markdown links resolve to an existing path | WARNING |
+| `repository-map` | Every top-level path in root `README.md` section 13 exists, no synthetic root entry is shown, and all catalog categories appear exactly once | ERROR |
 
 ## Files
 
