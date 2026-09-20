@@ -377,6 +377,81 @@ def check_markdown_links(root: Path) -> list[Issue]:
     return issues
 
 
+# ---------------------------------------------------------------------------
+# Check 8: root README repository map matches real top-level paths/catalog
+# ---------------------------------------------------------------------------
+
+_REPOSITORY_MAP_RE = re.compile(
+    r"^## 13\. Repository map \(visual navigation\)\s*```text\s*(.*?)```",
+    re.MULTILINE | re.DOTALL,
+)
+_TREE_BRANCH_PREFIXES = (
+    f"{chr(0x251C)}{chr(0x2500) * 2} ",
+    f"{chr(0x2514)}{chr(0x2500) * 2} ",
+)
+_TREE_VERTICAL = chr(0x2502)
+
+
+def check_repository_map(root: Path) -> list[Issue]:
+    issues: list[Issue] = []
+    readme = root / "README.md"
+    if not readme.is_file():
+        return [Issue(ERROR, "repository-map", "README.md", "root README does not exist")]
+
+    match = _REPOSITORY_MAP_RE.search(readme.read_text(encoding="utf-8", errors="replace"))
+    if not match:
+        return [
+            Issue(
+                ERROR,
+                "repository-map",
+                "README.md",
+                "section 13 must contain a fenced text repository map",
+            )
+        ]
+
+    lines = match.group(1).splitlines()
+    category_counts = {category: 0 for category in catalog.ALL_EXPECTED_CATEGORIES}
+    for index, line in enumerate(lines):
+        if not line.strip() or index == 0 or line.startswith(_TREE_VERTICAL):
+            continue
+        if not line.startswith(_TREE_BRANCH_PREFIXES):
+            issues.append(
+                Issue(
+                    ERROR,
+                    "repository-map",
+                    "README.md",
+                    f"unlinked synthetic root entry in repository map: '{line.strip()}'",
+                )
+            )
+            continue
+
+        entry = line[4:].split()[0]
+        relative = entry.rstrip("/")
+        if not (root / relative).exists():
+            issues.append(
+                Issue(
+                    ERROR,
+                    "repository-map",
+                    "README.md",
+                    f"top-level map path does not exist: '{entry}'",
+                )
+            )
+        if relative in category_counts:
+            category_counts[relative] += 1
+
+    for category, count in category_counts.items():
+        if count != 1:
+            issues.append(
+                Issue(
+                    ERROR,
+                    "repository-map",
+                    "README.md",
+                    f"category '{category}/' must appear exactly once as a top-level map path (found {count})",
+                )
+            )
+    return issues
+
+
 ALL_CHECKS = [
     ("workflow-readmes", check_workflow_readmes),
     ("sql-headers", check_sql_headers),
@@ -385,4 +460,5 @@ ALL_CHECKS = [
     ("sequential-filenames", check_sequential_filenames),
     ("catalog-completeness", check_catalog_completeness),
     ("markdown-links", check_markdown_links),
+    ("repository-map", check_repository_map),
 ]

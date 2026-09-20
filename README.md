@@ -237,97 +237,25 @@ aurora-postgresql-dba-toolkit/
 │   ├── scripts/                    version / role / extensions / topology checks
 │   └── documentation/              result-interpretation standards, Aurora function reference
 │
-Incident
-   │
-   ├── Performance                          performance/
-   │      ├── high-cpu                        high-database-load
-   │      ├── slow-queries                    query-regression
-   │      ├── high-iops                       high-latency
-   │      ├── throughput-degradation          sudden-performance-degradation
-   │      └── performance-after-deployment    performance-after-failover
-   │
-   ├── Concurrency & Locking                concurrency-and-locking/
-   │      ├── blocked-queries                 lock-contention
-   │      ├── deadlocks                       long-running-transactions
-   │      ├── idle-in-transaction             transaction-contention
-   │      └── ddl-blocking                    connection-contention
-   │
-   ├── Transactions & XID                   transactions-and-xid/
-   │      ├── xid-wraparound-risk             transaction-age
-   │      ├── oldest-transactions             prepared-transactions
-   │      └── multixact-risk
-   │
-   ├── Vacuum & Autovacuum                  vacuum-and-autovacuum/
-   │      ├── autovacuum-not-keeping-up       vacuum-progress
-   │      ├── dead-tuples                     table-bloat
-   │      ├── index-bloat                     vacuum-blocked
-   │      └── emergency-autovacuum            analyze-statistics
-   │
-   ├── Partitioning                         partitioning/
-   │      ├── investigate-partitioning-candidate   partition-existing-large-table
-   │      ├── partition-maintenance           partition-pruning
-   │      └── missing-partitions              partition-skew / partition-performance
-   │
-   ├── Archival & Data Lifecycle            archival-and-data-lifecycle/
-   │      ├── investigate-archiving-candidate archive-large-table
-   │      ├── archive-partition               purge-old-data
-   │      └── retention-policy                archive-validation
-   │
-   ├── Tables & Indexes                     tables-and-indexes/
-   │      ├── unused-indexes                  duplicate-indexes
-   │      ├── missing-index-candidates        sequential-scan-investigation
-   │      ├── index-bloat / table-bloat       invalid-indexes
-   │      └── large-tables                    rapidly-growing-tables / table-access-patterns
-   │
-   ├── Connections                          connections/
-   │      ├── connection-exhaustion           connection-spikes
-   │      ├── idle-connections                idle-in-transaction
-   │      └── connection-pooling              max-connections-planning / application-connection-analysis
-   │
-   ├── Replication & HA                     replication-and-ha/
-   │      ├── replication-lag                 reader-performance
-   │      ├── reader-lag-investigation        failover-investigation
-   │      └── failover-readiness              writer-reader-imbalance / replication-health
-   │
-   ├── Database Health                      database-health/
-   │      ├── comprehensive-health-check      daily-health-check
-   │      ├── pre/post-deployment-check       pre/post-maintenance-check
-   │      └── capacity-health-check
-   │
-   ├── Query Optimization                   query-optimization/
-   │      ├── analyze-query-plan              nested-loop-problems
-   │      ├── hash-join-analysis              merge-join-analysis
-   │      ├── cardinality-estimation          stale-statistics
-   │      └── sort-spills / temp-file-investigation / inefficient-index-usage / query-plan-regression
-   │
-   ├── Storage & Capacity                   storage-and-capacity/
-   │      ├── database-growth                 table-growth / index-growth
-   │      ├── wal-generation                  temp-file-growth
-   │      └── capacity-forecasting             unexpected-storage-growth
-   │
-   ├── Schema Changes                       schema-changes/
-   │      ├── safe-index-creation             concurrent-index-build / failed-index-build
-   │      ├── large-table-ddl                 column-type-change
-   │      └── add-column-large-table / add-index-large-table / drop-index-safely / ddl-lock-investigation
-   │
-   ├── Incident Response                    incident-response/
-   │      ├── database-unavailable            sudden-latency-spike
-   │      ├── lock-storm                      runaway-query
-   │      ├── application-timeouts            post-deployment-incident
-   │      └── production-triage (rapid-response checklist)
-   │
-   ├── Security & Access                    security-and-access/
-   ├── Observability                        observability/
-   │      ├── postgres-metrics                performance-insights
-   │      ├── cloudwatch                      slow-query-observability
-   │      ├── wait-event-analysis             dashboard-recommendations
-   │      └── comprehensive-html-report
-   │
-   ├── Maintenance                          maintenance/
-   ├── Disaster Recovery                    disaster-recovery/
-   └── Automation                           automation/
-          ├── health-checks                   growth-monitoring
-          └── xid-monitoring                  index-monitoring / capacity-monitoring
+├── archival-and-data-lifecycle/  <- Archival & Data Lifecycle
+├── automation/                   <- Automation
+├── concurrency-and-locking/      <- Concurrency & Locking
+├── connections/                  <- Connections
+├── database-health/              <- Database Health
+├── disaster-recovery/            <- Disaster Recovery
+├── incident-response/            <- Incident Response
+├── maintenance/                  <- Maintenance
+├── observability/                <- Observability
+├── partitioning/                 <- Partitioning
+├── performance/                  <- Performance
+├── query-optimization/           <- Query Optimization
+├── replication-and-ha/           <- Replication & HA
+├── schema-changes/               <- Schema Changes
+├── security-and-access/          <- Security & Access
+├── storage-and-capacity/         <- Storage & Capacity
+├── tables-and-indexes/           <- Tables & Indexes
+├── transactions-and-xid/         <- Transactions & XID
+└── vacuum-and-autovacuum/        <- Vacuum & Autovacuum
 ```
 
 ## Quick links
