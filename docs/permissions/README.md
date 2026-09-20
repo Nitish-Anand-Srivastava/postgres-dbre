@@ -40,6 +40,12 @@ data in application tables it has not separately been granted `SELECT` on
 (statistics views expose query text and aggregate metrics, not table
 contents).
 
+The comprehensive HTML report is a documented exception because it creates a
+session-scoped temporary table. It also requires `TEMPORARY` on the target
+database. PostgreSQL grants that privilege to `PUBLIC` by default, but a
+hardened environment may revoke it; grant it only on the database where the
+report must run.
+
 ## 3. Elevated / remediation privileges
 
 Documented per-script, only when needed, and never bundled into the

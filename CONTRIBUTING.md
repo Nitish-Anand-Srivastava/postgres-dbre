@@ -217,21 +217,29 @@ To keep concurrent contributions conflict-free:
   maintained independently of the generated operational category
   directories.
 * Category workflow directories (`performance/`, `concurrency-and-
-  locking/`, `vacuum-and-autovacuum/`, etc.) and `tools/repo_builder/**`
-  are generated/maintained as their own concern. If you are adding a new
-  workflow, follow the structural and SQL contracts in this document
-  regardless of which side of that boundary you are contributing to.
+  locking/`, `vacuum-and-autovacuum/`, etc.) are generated from
+  `tools/repo_builder/**`. Change the workflow registry or renderer first,
+  then run `python tools/build_repository.py`; do not hand-edit generated
+  category files. A script explicitly registered with
+  `generator_managed=False` is an authoritative checked-in external artifact
+  and is preserved by the generator. `.repo-builder-manifest.json` is generated
+  ownership metadata: commit its updates, but do not edit it by hand. Cleanup
+  removes only stale manifest-owned files whose content still matches the
+  recorded hash and prunes directories only when they are empty.
 
 ## 5. Before opening a pull request
 
-1. Run `python tools/validation/validate_repo.py` from the repository
-   root and resolve every reported error (warnings should be reviewed but
-   do not necessarily block a PR if justified in the PR description).
-2. Re-read the header of every new/changed `.sql` file against section 2
+1. Run `python tools/build_repository.py` from the repository root, then
+   confirm `git diff` contains only the intended generated changes. Run the
+   generator a second time and confirm it produces no further diff.
+2. Run `python tools/validation/validate_repo.py` and resolve every reported
+   error (warnings should be reviewed but do not necessarily block a PR if
+   justified in the PR description).
+3. Re-read the header of every new/changed `.sql` file against section 2
    above.
-3. Confirm every new workflow directory has both required `README.md`
+4. Confirm every new workflow directory has both required `README.md`
    files and that scripts are sequentially numbered with no gaps.
-4. Confirm no destructive statement is executable "as shipped" without an
+5. Confirm no destructive statement is executable "as shipped" without an
    operator supplying a target.
 
 ## 6. Style

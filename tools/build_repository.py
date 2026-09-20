@@ -7,9 +7,11 @@ Usage:
 
 Re-running this script is safe and idempotent for generated workflow
 directories (it overwrites README.md, scripts/README.md, and scripts/*.sql
-under each workflow path) but never touches hand-authored root-level files
-(README.md, CONTRIBUTING.md, LICENSE, docs/, common/) which are maintained
-directly, not generated.
+under each workflow path). A manifest records generator-owned files so obsolete
+outputs can be removed without deleting hand-authored or modified files. The
+builder never touches hand-authored root-level files (README.md,
+CONTRIBUTING.md, LICENSE, docs/, common/) or scripts registered with
+generator_managed=False.
 """
 from __future__ import annotations
 
@@ -19,7 +21,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tools.repo_builder.writer import write_workflows  # noqa: E402
+from tools.repo_builder.writer import sync_managed_artifacts, write_workflows  # noqa: E402
 
 # Each entry: (module_path, attribute_name)
 CATEGORY_MODULES = [
@@ -58,15 +60,33 @@ def main() -> None:
 
     total_workflows = 0
     total_scripts = 0
+    generated_by_category: dict[str, dict[str, str]] = {}
+    selected_categories: set[str] = set()
     for mod_name in modules:
         import importlib
 
         mod = importlib.import_module(mod_name)
         workflows = getattr(mod, "WORKFLOWS")
-        write_workflows(args.root, workflows)
+        category = getattr(mod, "CATEGORY_SLUG")
+        selected_categories.add(category)
+        if not workflows:
+            generated_by_category[category] = {}
+            continue
+        if any(workflow.category_slug != category for workflow in workflows):
+            raise ValueError(f"{mod_name} contains workflows from multiple categories")
+        generated_by_category[category] = write_workflows(args.root, workflows)
         total_workflows += len(workflows)
         total_scripts += sum(len(w.scripts) for w in workflows)
         print(f"[ok] {mod_name}: {len(workflows)} workflows, {sum(len(w.scripts) for w in workflows)} scripts")
+
+    removed = sync_managed_artifacts(
+        args.root,
+        generated_by_category,
+        selected_categories=selected_categories,
+        full_build=args.only is None,
+    )
+    if removed:
+        print(f"[clean] removed {len(removed)} obsolete generator-managed file(s)")
 
     print(f"\nTotal: {total_workflows} workflows, {total_scripts} scripts written under {args.root}")
 

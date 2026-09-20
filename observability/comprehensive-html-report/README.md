@@ -33,7 +33,7 @@ A production-validated, self-contained psql report that captures a broad Aurora 
 ## 6. Prerequisites
 
 - A supported psql client on Linux, macOS, or Windows; the report depends on psql meta-commands and is not intended for a generic SQL-only client.
-- CONNECT on the target database plus pg_monitor, or equivalent SELECT privileges on the referenced system catalogs and statistics views.
+- CONNECT and TEMPORARY on the target database plus pg_monitor, or equivalent SELECT privileges on the referenced system catalogs and statistics views.
 - TLS connection settings for the Aurora endpoint. sslmode=verify-full with the current Amazon RDS CA bundle is recommended; sslmode=require encrypts traffic but does not verify server identity.
 - No extension is mandatory. pg_stat_statements, pg_wait_sampling, apg_plan_mgmt, and version-specific catalog views are detected before use; auto_explain is correctly treated as a preload-only module.
 
@@ -48,7 +48,7 @@ full execution table (safety, expected runtime, when to stop).
 
 Differences from self-managed / standard PostgreSQL that matter for this workflow:
 
-- This imported report is the current main-branch version of [`platforms/aurora-postgresql/aws-rds/postgres_observability_report.sql`](https://github.com/Nitish-Anand-Srivastava/database-reliability-engineering/blob/main/platforms/aurora-postgresql/aws-rds/postgres_observability_report.sql), production-validated against Aurora PostgreSQL 17.7 after Nitish-Anand-Srivastava/database-reliability-engineering#16.
+- This report is derived from [`platforms/aurora-postgresql/aws-rds/postgres_observability_report.sql`](https://github.com/Nitish-Anand-Srivastava/database-reliability-engineering/blob/main/platforms/aurora-postgresql/aws-rds/postgres_observability_report.sql), production-validated against Aurora PostgreSQL 17.7 after Nitish-Anand-Srivastava/database-reliability-engineering#16. This repository adds its standard script header plus safe `psql -o` invocation guidance and validator-safe rendering adjustments.
 - Aurora extensions are not assumed available. Extension and module checks distinguish installed extensions, unavailable extensions, and auto_explain's shared_preload_libraries-only activation model.
 - Unsupported Aurora WAL statistics paths are guarded so the report records availability guidance rather than aborting.
 - Settings with PostgreSQL unit suffixes are interpreted through catalog metadata rather than assuming every setting is a bare integer.

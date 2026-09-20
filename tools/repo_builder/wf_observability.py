@@ -263,7 +263,7 @@ WORKFLOWS.append(_wf(
     ],
     prerequisites=[
         "A supported psql client on Linux, macOS, or Windows; the report depends on psql meta-commands and is not intended for a generic SQL-only client.",
-        "CONNECT on the target database plus pg_monitor, or equivalent SELECT privileges on the referenced system catalogs and statistics views.",
+        "CONNECT and TEMPORARY on the target database plus pg_monitor, or equivalent SELECT privileges on the referenced system catalogs and statistics views.",
         "TLS connection settings for the Aurora endpoint. sslmode=verify-full with the current Amazon RDS CA bundle is recommended; sslmode=require encrypts traffic but does not verify server identity.",
         "No extension is mandatory. pg_stat_statements, pg_wait_sampling, apg_plan_mgmt, and version-specific catalog views are detected before use; auto_explain is correctly treated as a preload-only module.",
     ],
@@ -305,7 +305,7 @@ WORKFLOWS.append(_wf(
         "../../storage-and-capacity/capacity-forecasting/README.md",
     ],
     aurora_notes=[
-        "This imported report is the current main-branch version of [`platforms/aurora-postgresql/aws-rds/postgres_observability_report.sql`](https://github.com/Nitish-Anand-Srivastava/database-reliability-engineering/blob/main/platforms/aurora-postgresql/aws-rds/postgres_observability_report.sql), production-validated against Aurora PostgreSQL 17.7 after Nitish-Anand-Srivastava/database-reliability-engineering#16.",
+        "This report is derived from [`platforms/aurora-postgresql/aws-rds/postgres_observability_report.sql`](https://github.com/Nitish-Anand-Srivastava/database-reliability-engineering/blob/main/platforms/aurora-postgresql/aws-rds/postgres_observability_report.sql), production-validated against Aurora PostgreSQL 17.7 after Nitish-Anand-Srivastava/database-reliability-engineering#16. This repository adds its standard script header plus safe `psql -o` invocation guidance and validator-safe rendering adjustments.",
         "Aurora extensions are not assumed available. Extension and module checks distinguish installed extensions, unavailable extensions, and auto_explain's shared_preload_libraries-only activation model.",
         "Unsupported Aurora WAL statistics paths are guarded so the report records availability guidance rather than aborting.",
         "Settings with PostgreSQL unit suffixes are interpreted through catalog metadata rather than assuming every setting is a bare integer.",
@@ -374,7 +374,7 @@ wf.scripts = [
         "Open postgres_observability_report.html in a browser, begin with the executive summary and prioritized findings, and corroborate each recommendation in the corresponding detailed section and focused repository workflow before acting.",
         safety="LOW RISK WRITE (session-scoped temporary table only)",
         expected_impact="Low to moderate -- creates one session-local temporary table and scans system catalogs/statistics views; typically seconds to several minutes, scaling with database object count and statistics volume.",
-        required_privileges="CONNECT plus pg_monitor (or equivalent SELECT access to the referenced system views). No superuser is required.",
+        required_privileges="CONNECT and TEMPORARY on the target database plus pg_monitor (or equivalent SELECT access to the referenced system views). No superuser is required.",
         prerequisites="psql with TLS configured. Optional extensions are dynamically detected; none is required for the report to complete.",
         execution_location=WRITER_PREFERRED,
         expected_runtime="Typically seconds to several minutes; run once and avoid repeated execution during peak load.",

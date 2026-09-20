@@ -293,7 +293,7 @@ def check_sequential_filenames(root: Path) -> list[Issue]:
 
 
 # ---------------------------------------------------------------------------
-# Check 6: expected explicit workflow catalog completeness
+# Check 6: authoritative workflow catalog completeness
 # ---------------------------------------------------------------------------
 
 def check_catalog_completeness(root: Path) -> list[Issue]:
@@ -303,7 +303,7 @@ def check_catalog_completeness(root: Path) -> list[Issue]:
     for category in catalog.ALL_EXPECTED_CATEGORIES:
         if category not in existing_categories:
             issues.append(
-                Issue(WARNING, "catalog-completeness", category, "expected category directory does not exist yet")
+                Issue(ERROR, "catalog-completeness", category, "category required by the authoritative catalog is missing")
             )
 
     for category, expected_workflows in catalog.EXPLICIT_CATALOG.items():
@@ -316,20 +316,19 @@ def check_catalog_completeness(root: Path) -> list[Issue]:
         for workflow in missing:
             issues.append(
                 Issue(
-                    WARNING,
+                    ERROR,
                     "catalog-completeness",
                     f"{category}/{workflow}",
-                    "expected workflow directory does not exist yet",
+                    "workflow required by the authoritative catalog is missing",
                 )
             )
         for workflow in extra:
             issues.append(
                 Issue(
-                    WARNING,
+                    ERROR,
                     "catalog-completeness",
                     f"{category}/{workflow}",
-                    "workflow directory not present in the documented catalog (informational -- "
-                    "the specification allows building at least the documented set)",
+                    "workflow directory is not present in the authoritative catalog",
                 )
             )
 

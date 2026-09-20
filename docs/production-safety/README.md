@@ -26,6 +26,12 @@ small number of clearly separated remediation templates going up to
 investigation sequence without an unmistakable label change in both the
 script header and the `scripts/README.md` table.
 
+The comprehensive HTML observability report is the deliberate diagnostic
+exception: it is `LOW RISK WRITE` because it creates and populates one
+session-scoped temporary table. It does not persist database objects or write
+application data, but its broad catalog/statistics scan should not be treated
+as equivalent to the lightweight `READ ONLY` scripts during a severe incident.
+
 ## 2. Non-negotiable rules
 
 * **No script terminates a session** (`pg_terminate_backend()`,

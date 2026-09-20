@@ -20,7 +20,7 @@ EXPECTED IMPACT:
 Creates and populates one session-scoped temporary table, then reads system catalogs and statistics views. Runtime is typically seconds to several minutes and scales with database object count and statistics volume.
 
 REQUIRED PRIVILEGES:
-CONNECT plus pg_monitor (or equivalent SELECT access to the referenced system views). Optional extensions are used only when already available.
+CONNECT and TEMPORARY on the target database plus pg_monitor (or equivalent SELECT access to the referenced system views). Optional extensions are used only when already available.
 
 PREREQUISITES:
 psql with SSL configured for the Aurora endpoint. No extension is required; pg_stat_statements, pg_wait_sampling, and apg_plan_mgmt are detected before use.
