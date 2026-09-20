@@ -25,3 +25,8 @@ jobs:
 
       - name: Run repository validator
         run: python tools/validation/validate_repo.py
+
+      - name: Verify generated workflow files are current
+        run: |
+          python tools/build_repository.py
+          git diff --exit-code

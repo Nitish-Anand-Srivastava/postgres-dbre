@@ -1,21 +1,15 @@
 """Authoritative expected workflow catalog for the Aurora PostgreSQL DBA
 Toolkit repository.
 
-This mirrors the categories and workflow directories explicitly enumerated
-in the repository's design specification. It is used by
-``validate_repo.py`` to report catalog completeness -- i.e. which expected
-workflow directories exist and which are still outstanding.
+This mirrors the categories and workflow directories materialized by the
+workflow generator. It is used by ``validate_repo.py`` to report catalog
+drift between the expected and on-disk workflow trees.
 
-Two kinds of categories are tracked:
-
-* ``EXPLICIT_CATALOG`` -- categories for which the specification lists an
-  exact set of expected workflow subdirectories. Missing entries are
-  reported as outstanding work.
-* ``OPEN_CATALOG`` -- categories the specification names as top-level
-  directories but does not enumerate a fixed workflow list for
-  (``security-and-access``, ``maintenance``, ``disaster-recovery``). These
-  are only checked for existence and for having at least one populated
-  workflow; no fixed subdirectory list is enforced.
+``EXPLICIT_CATALOG`` records the exact workflow set materialized by the
+generator. Missing or unexpected workflow directories are therefore reported
+as catalog drift. ``OPEN_CATALOG`` remains available for a future category
+whose workflow set is intentionally open-ended, but the current repository has
+no such category.
 
 This module intentionally contains no logic beyond plain data so it can be
 reviewed/updated independently of the validation script itself.
@@ -177,13 +171,36 @@ EXPLICIT_CATALOG: dict[str, list[str]] = {
         "index-monitoring",
         "capacity-monitoring",
     ],
+    "security-and-access": [
+        "role-and-privilege-audit",
+        "unused-and-orphaned-roles",
+        "public-schema-exposure",
+        "ssl-and-connection-security",
+        "audit-logging-and-iam-auth",
+        "row-level-security-review",
+        "credential-and-authentication-hygiene",
+        "access-anomaly-investigation",
+    ],
+    "maintenance": [
+        "routine-maintenance-checklist",
+        "reindex-strategy",
+        "extension-upgrade-planning",
+        "parameter-group-change-management",
+        "minor-version-upgrade-readiness",
+        "statistics-maintenance",
+        "planned-maintenance-window-checklist",
+    ],
+    "disaster-recovery": [
+        "cluster-failover-drill",
+        "backup-and-restore-validation",
+        "point-in-time-recovery-drill",
+        "cross-region-and-full-cluster-loss",
+        "rto-rpo-validation",
+        "snapshot-restore-testing",
+    ],
 }
 
-OPEN_CATALOG: list[str] = [
-    "security-and-access",
-    "maintenance",
-    "disaster-recovery",
-]
+OPEN_CATALOG: list[str] = []
 
 # Directories at repository root that are NOT operational category
 # directories and must be skipped by category/workflow discovery.

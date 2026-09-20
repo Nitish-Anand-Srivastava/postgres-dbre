@@ -28,6 +28,7 @@ ENV/
 tools/validation/.reports/
 *.validation-report.json
 *.validation-report.txt
+/postgres_observability_report.html
 
 # --- Editors / IDEs ---
 .vscode/

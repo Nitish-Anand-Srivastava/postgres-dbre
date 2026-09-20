@@ -26,6 +26,16 @@ storage/capacity, schema changes, incident response, security, and
 observability integration (AWS Performance Insights / CloudWatch
 alongside SQL-level diagnostics).
 
+### Current repository inventory
+
+The authoritative workflow registry (`tools/repo_builder/wf_*.py`) currently
+materializes **19 operational categories**, **143 workflows**, and **555
+numbered workflow artifacts**: 478 SQL files and 77 manual Markdown runbooks.
+Of those, 554 are rendered by the generator and the comprehensive HTML
+report SQL is preserved as one generator-registered external artifact.
+Including the eight hand-authored `common/scripts/` utilities, the repository
+contains **486 SQL files** and **563 numbered operational artifacts**.
+
 ## 2. Target platform
 
 * Amazon Aurora PostgreSQL-Compatible Edition, engine version **17+**.
@@ -66,6 +76,25 @@ baseline.
 You should never need to search across unrelated directories to complete
 one investigation.
 
+### Running the SQL
+
+Clone the repository and run commands from its root; the SQL has no install
+step or Python dependency. Most numbered `.sql` files are terminal
+diagnostics and can be run with:
+
+```text
+psql -X -v ON_ERROR_STOP=1 -f <category>/<workflow>/scripts/NN_script.sql
+```
+
+The exception is
+[`observability/comprehensive-html-report/`](observability/comprehensive-html-report/README.md):
+it is a broad, self-contained HTML snapshot rather than a normal terminal
+diagnostic. Follow its platform-specific instructions and supply `-o
+postgres_observability_report.html`. It is `LOW RISK WRITE` because it uses a
+session-local temporary table; it does not persist database objects or modify
+application data. The generated HTML can contain query text and operational
+metadata and is ignored by Git at the documented root output path.
+
 ## 5. Investigation philosophy
 
 Every workflow follows the same loop: **start broad, narrow to the
@@ -85,6 +114,8 @@ Every script is labeled `READ ONLY`, `LOW RISK WRITE`, `ELEVATED RISK`, or
 `DESTRUCTIVE` in its header, and destructive operations against a specific
 table always require the operator to supply a target -- never a hardcoded
 production table name. Full model: `docs/production-safety/README.md`.
+The comprehensive HTML report is the documented exception: it is classified
+`LOW RISK WRITE` solely because it creates a session-scoped temporary table.
 
 ## 7. Required permissions
 
@@ -95,6 +126,9 @@ workflows document their own additional requirements (e.g. table
 ownership for DDL, `pg_signal_backend` for session termination
 remediation) in their script headers rather than assuming broad access.
 Full model, including an example role definition: `docs/permissions/README.md`.
+The comprehensive HTML report additionally requires the database `TEMPORARY`
+privilege; this is granted to `PUBLIC` by default but may be revoked in
+hardened environments.
 
 ## 8. Required extensions
 
@@ -149,12 +183,31 @@ every script, no placeholders, no unattended destructive statements, and
 
 ## 12. Version compatibility
 
-This repository targets **Aurora PostgreSQL 17+**. Where a script depends
-on behavior specific to a 17.x point release, or differs from 15/16, that
-is documented in the script's own `AURORA POSTGRESQL VERSION` header
-field rather than assumed. Catalog/view/function references are checked
-against PostgreSQL 17 and cross-checked for Aurora availability before
-being added (see `CONTRIBUTING.md` section 2.3).
+This repository targets **Aurora PostgreSQL 17 and later**, using community
+PostgreSQL 17 catalogs and syntax as the compatibility baseline. It is not a
+generic community PostgreSQL toolkit: Aurora availability and behavior are
+checked separately. Point-release validation is documented in each script's
+`AURORA POSTGRESQL VERSION` header; the comprehensive HTML report is
+specifically production-validated on Aurora PostgreSQL 17.7. For a newer
+Aurora major version, review the relevant headers and validate in a
+non-production cluster before use (see `CONTRIBUTING.md` section 2.3).
+
+## Generated files and validation
+
+Category and workflow READMEs, script indexes, and generator-managed numbered
+artifacts come from `tools/repo_builder/`; edit those sources rather than the
+rendered files. The comprehensive HTML report SQL is intentionally registered
+with `generator_managed=False`, so regeneration verifies its presence without
+overwriting the imported artifact.
+
+```text
+python tools/build_repository.py
+python tools/validation/validate_repo.py
+```
+
+Run the generator twice when changing workflow sources: the second run must
+leave `git diff` unchanged. CI runs the same generator/clean-diff check and the
+full validator with Python 3.11.
 
 ---
 
