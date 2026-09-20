@@ -60,6 +60,8 @@ python tools/validation/validate_repo.py --quiet
 
 A GitHub Actions workflow (`.github/workflows/validate-repository.yml`)
 runs `validate_repo.py`, regenerates the workflow tree with
-`python tools/build_repository.py`, and fails if regeneration leaves a diff.
-Both commands use only the Python standard library; no extra dependencies
-are required.
+`python tools/build_repository.py`, runs the generator synchronization
+regression tests, and fails if regeneration leaves any tracked or untracked
+change. The generator's `.repo-builder-manifest.json` limits stale-file cleanup
+to previously generated content whose hash is unchanged. All commands use only
+the Python standard library; no extra dependencies are required.

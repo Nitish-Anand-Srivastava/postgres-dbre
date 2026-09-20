@@ -198,7 +198,10 @@ Category and workflow READMEs, script indexes, and generator-managed numbered
 artifacts come from `tools/repo_builder/`; edit those sources rather than the
 rendered files. The comprehensive HTML report SQL is intentionally registered
 with `generator_managed=False`, so regeneration verifies its presence without
-overwriting the imported artifact.
+overwriting the imported artifact. `.repo-builder-manifest.json` records each
+managed path and content hash. A full build removes an obsolete path only when
+it is listed in that manifest and still matches its last generated hash;
+modified, untracked, and externally managed files are preserved.
 
 ```text
 python tools/build_repository.py

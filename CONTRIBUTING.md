@@ -222,7 +222,10 @@ To keep concurrent contributions conflict-free:
   then run `python tools/build_repository.py`; do not hand-edit generated
   category files. A script explicitly registered with
   `generator_managed=False` is an authoritative checked-in external artifact
-  and is preserved by the generator.
+  and is preserved by the generator. `.repo-builder-manifest.json` is generated
+  ownership metadata: commit its updates, but do not edit it by hand. Cleanup
+  removes only stale manifest-owned files whose content still matches the
+  recorded hash and prunes directories only when they are empty.
 
 ## 5. Before opening a pull request
 

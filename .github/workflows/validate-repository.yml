@@ -26,7 +26,14 @@ jobs:
       - name: Run repository validator
         run: python tools/validation/validate_repo.py
 
+      - name: Test generator synchronization
+        run: python -m unittest discover -s tools/repo_builder -p "test_*.py"
+
       - name: Verify generated workflow files are current
         run: |
           python tools/build_repository.py
-          git diff --exit-code
+          changes="$(git status --porcelain --untracked-files=all)"
+          if [ -n "$changes" ]; then
+            printf '%s\n' "$changes"
+            exit 1
+          fi
